@@ -48,16 +48,38 @@ const mockMatches = {
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 PronosAI démarré');
+    
+    // Vérifier que les éléments existent
+    const coteInput = document.getElementById('cote-input');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    
+    if (!coteInput) {
+        console.error('❌ Champ côte introuvable !');
+        alert('Erreur: Champ de saisie de côte manquant');
+        return;
+    }
+    
+    if (!analyzeBtn) {
+        console.error('❌ Bouton analyser introuvable !');
+        alert('Erreur: Bouton d\'analyse manquant');
+        return;
+    }
+    
     initializeParticles();
     initializeSliders();
     initializeAnimations();
     initializeEventListeners();
     loadMatches('today');
+    
+    console.log('✅ Interface initialisée avec succès');
 });
 
 // Particules d'arrière-plan
 function initializeParticles() {
     const particlesContainer = document.getElementById('particles');
+    if (!particlesContainer) return;
+    
     const particleCount = 50;
     
     for (let i = 0; i < particleCount; i++) {
@@ -73,6 +95,13 @@ function initializeParticles() {
 
 // Initialisation des sliders Splide
 function initializeSliders() {
+    // Vérifier que les éléments existent
+    const periodSlider = document.getElementById('period-slider');
+    if (!periodSlider) {
+        console.warn('⚠️ Slider des périodes non trouvé');
+        return;
+    }
+    
     // Slider pour les périodes
     new Splide('#period-slider', {
         type: 'slide',
@@ -95,24 +124,27 @@ function initializeSliders() {
     }).mount();
     
     // Slider pour les matchs
-    window.matchesSlider = new Splide('#matches-slider', {
-        type: 'slide',
-        perPage: 3,
-        perMove: 1,
-        gap: '1.5rem',
-        padding: '2rem',
-        arrows: true,
-        pagination: false,
-        breakpoints: {
-            1024: {
-                perPage: 2
-            },
-            768: {
-                perPage: 1,
-                padding: '3rem'
+    const matchesSliderEl = document.getElementById('matches-slider');
+    if (matchesSliderEl) {
+        window.matchesSlider = new Splide('#matches-slider', {
+            type: 'slide',
+            perPage: 3,
+            perMove: 1,
+            gap: '1.5rem',
+            padding: '2rem',
+            arrows: true,
+            pagination: false,
+            breakpoints: {
+                1024: {
+                    perPage: 2
+                },
+                768: {
+                    perPage: 1,
+                    padding: '3rem'
+                }
             }
-        }
-    });
+        });
+    }
 }
 
 // Animations de défilement
@@ -150,18 +182,31 @@ function initializeEventListeners() {
     document.querySelectorAll('.period-option').forEach(option => {
         option.addEventListener('click', function() {
             const period = this.dataset.period;
-            selectPeriod(period);
+            if (period) {
+                selectPeriod(period);
+            } else {
+                console.error('❌ Période non définie sur la card');
+            }
         });
     });
     
     // Saisie de cote
     const coteInput = document.getElementById('cote-input');
-    coteInput.addEventListener('input', function() {
-        validateCote(this.value);
-    });
+    if (coteInput) {
+        coteInput.addEventListener('input', function() {
+            validateCote(this.value);
+        });
+        
+        // DEBUG : Vérifier que le champ est accessible
+        console.log('✅ Champ côte trouvé et prêt');
+    }
     
     // Bouton analyser
-    document.getElementById('analyze-btn').addEventListener('click', analyzePredictions);
+    const analyzeBtn = document.getElementById('analyze-btn');
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', analyzePredictions);
+        console.log('✅ Bouton analyser trouvé et prêt');
+    }
     
     // Scroll smooth pour la navigation
     document.querySelectorAll('nav a[href^="#"]').forEach(anchor => {
@@ -177,27 +222,39 @@ function initializeEventListeners() {
 
 // Sélection de période
 function selectPeriod(period) {
+    if (!period) {
+        console.error('❌ Aucune période fournie');
+        return;
+    }
+    
     // Mise à jour visuelle
     document.querySelectorAll('.period-option').forEach(option => {
         option.classList.remove('active');
     });
-    document.querySelector(`[data-period="${period}"]`).classList.add('active');
     
-    // Animation de transition
-    anime({
-        targets: '.period-option.active',
-        scale: [1, 1.05, 1],
-        duration: 300,
-        easing: 'easeOutQuad'
-    });
+    const selectedEl = document.querySelector(`[data-period="${period}"]`);
+    if (selectedEl) {
+        selectedEl.classList.add('active');
+        
+        // Animation de transition
+        anime({
+            targets: selectedEl,
+            scale: [1, 1.05, 1],
+            duration: 300,
+            easing: 'easeOutQuad'
+        });
+    }
     
     state.selectedPeriod = period;
     loadMatches(period);
     updateAnalyzeButton();
     
+    console.log(`✅ Période sélectionnée: ${period}`);
+    
     // Si une côte est déjà saisie, déclencher l'analyse automatique
     if (state.coteValue && state.coteValue >= 1.10 && state.coteValue <= 10.00) {
         setTimeout(() => {
+            console.log('🔄 Déclenchement analyse automatique...');
             analyzePredictions();
         }, 500);
     }
@@ -206,7 +263,13 @@ function selectPeriod(period) {
 // Chargement des matchs
 function loadMatches(period) {
     const matchesList = document.getElementById('matches-list');
+    if (!matchesList) {
+        console.error('❌ Liste des matchs introuvable');
+        return;
+    }
+    
     const matches = mockMatches[period] || [];
+    console.log(`📊 Chargement de ${matches.length} matchs pour ${period}`);
     
     // Animation de sortie
     anime({
@@ -292,6 +355,8 @@ function createMatchCard(match) {
 
 // Toggle sélection de match
 function toggleMatchSelection(matchId, cardElement) {
+    if (!cardElement) return;
+    
     if (state.selectedMatches.has(matchId)) {
         state.selectedMatches.delete(matchId);
         cardElement.classList.remove('selected');
@@ -319,75 +384,104 @@ function toggleMatchSelection(matchId, cardElement) {
 
 // Validation de la cote
 function validateCote(value) {
+    const coteInput = document.getElementById('cote-input');
+    if (!coteInput) return;
+    
     const cote = parseFloat(value);
-    const input = document.getElementById('cote-input');
     
     if (value === '' || (cote >= 1.10 && cote <= 10.00)) {
-        input.classList.remove('error-shake');
+        coteInput.classList.remove('error-shake');
         state.coteValue = cote;
         updateAnalyzeButton();
+        
+        console.log(`✅ Côte validée: ${cote}`);
         
         // Déclencher l'analyse automatique si une période est sélectionnée
         if (state.selectedPeriod && cote >= 1.10 && cote <= 10.00) {
             setTimeout(() => {
+                console.log('🔄 Déclenchement analyse automatique après saisie côte...');
                 analyzePredictions();
             }, 500);
         }
     } else {
-        input.classList.add('error-shake');
+        coteInput.classList.add('error-shake');
         setTimeout(() => {
-            input.classList.remove('error-shake');
+            coteInput.classList.remove('error-shake');
         }, 500);
         state.coteValue = null;
         updateAnalyzeButton();
+        console.log('❌ Côte invalide');
     }
 }
 
 // Mise à jour du bouton analyser
 function updateAnalyzeButton() {
     const btn = document.getElementById('analyze-btn');
+    if (!btn) return;
+    
     const hasValidCote = state.coteValue && state.coteValue >= 1.10 && state.coteValue <= 10.00;
     const hasSelectedPeriod = state.selectedPeriod;
     
     if (hasValidCote && hasSelectedPeriod && !state.isLoading) {
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        console.log('✅ Bouton activé');
     } else {
         btn.disabled = true;
         btn.classList.add('opacity-50', 'cursor-not-allowed');
+        console.log('🚫 Bouton désactivé');
     }
 }
 
 // Analyse des pronostics
 async function analyzePredictions() {
-    if (state.isLoading) return;
+    if (state.isLoading) {
+        console.log('⚠️ Analyse déjà en cours');
+        return;
+    }
+    
+    if (!state.selectedPeriod) {
+        showError('Veuillez d\'abord sélectionner une période');
+        return;
+    }
+    
+    if (!state.coteValue || state.coteValue < 1.10 || state.coteValue > 10.00) {
+        showError('Veuillez saisir une côte valide (1.10 - 10.00)');
+        return;
+    }
     
     state.isLoading = true;
     updateAnalyzeButton();
+    
+    console.log('🚀 Lancement de l\'analyse...');
     
     // Animation du bouton
     const btnText = document.getElementById('btn-text');
     const btnSpinner = document.getElementById('btn-spinner');
     const loadingContainer = document.getElementById('loading-container');
     
-    btnText.textContent = 'Analyse en cours...';
-    btnSpinner.classList.remove('hidden');
+    if (btnText) btnText.textContent = 'Analyse en cours...';
+    if (btnSpinner) btnSpinner.classList.remove('hidden');
     
     // Afficher la barre de chargement
-    loadingContainer.classList.remove('hidden');
-    loadingContainer.classList.add('flex');
-    
-    // Animation d'entrée
-    anime({
-        targets: loadingContainer,
-        opacity: [0, 1],
-        duration: 300,
-        easing: 'easeOutQuad'
-    });
+    if (loadingContainer) {
+        loadingContainer.classList.remove('hidden');
+        loadingContainer.classList.add('flex');
+        
+        // Animation d'entrée
+        anime({
+            targets: loadingContainer,
+            opacity: [0, 1],
+            duration: 300,
+            easing: 'easeOutQuad'
+        });
+    }
     
     try {
         // Récupérer automatiquement tous les matchs de la période sélectionnée
         const matchesForPeriod = mockMatches[state.selectedPeriod] || [];
+        
+        console.log(`📊 Analyse de ${matchesForPeriod.length} matchs...`);
         
         // Appel API réel au serveur
         const response = await fetch('/api/analyze', {
@@ -410,6 +504,7 @@ async function analyzePredictions() {
         const result = await response.json();
         
         if (result.success) {
+            console.log('✅ Analyse terminée avec succès');
             // Afficher les résultats
             displayResults(matchesForPeriod);
         } else {
@@ -417,36 +512,29 @@ async function analyzePredictions() {
         }
         
     } catch (error) {
-        console.error('Erreur lors de l\'analyse:', error);
+        console.error('❌ Erreur lors de l\'analyse:', error);
         showError('Une erreur est survenue lors de l\'analyse.');
     } finally {
         // Masquer la barre de chargement
-        anime({
-            targets: loadingContainer,
-            opacity: [1, 0],
-            duration: 300,
-            easing: 'easeInQuad',
-            complete: () => {
-                loadingContainer.classList.add('hidden');
-                loadingContainer.classList.remove('flex');
-            }
-        });
+        if (loadingContainer) {
+            anime({
+                targets: loadingContainer,
+                opacity: [1, 0],
+                duration: 300,
+                easing: 'easeInQuad',
+                complete: () => {
+                    loadingContainer.classList.add('hidden');
+                    loadingContainer.classList.remove('flex');
+                }
+            });
+        }
         
         // Réinitialiser le bouton
         state.isLoading = false;
-        btnText.textContent = 'Analyser les Pronostics';
-        btnSpinner.classList.add('hidden');
+        if (btnText) btnText.textContent = 'Analyser Automatiquement';
+        if (btnSpinner) btnSpinner.classList.add('hidden');
         updateAnalyzeButton();
     }
-}
-
-// Simulation de l'analyse
-function simulateAnalysis() {
-    return new Promise(resolve => {
-        setTimeout(() => {
-            resolve();
-        }, 4000); // 4 secondes de simulation
-    });
 }
 
 // Affichage des résultats
@@ -455,6 +543,11 @@ function displayResults(matchesForPeriod = null) {
     const pronosticContent = document.getElementById('pronostic-content');
     const fiabiliteContent = document.getElementById('fiabilite-content');
     const matchDetails = document.getElementById('match-details');
+    
+    if (!resultsSection || !pronosticContent || !fiabiliteContent || !matchDetails) {
+        console.error('❌ Éléments de résultats introuvables');
+        return;
+    }
     
     // Générer les résultats simulés
     const results = generateMockResults();
@@ -530,7 +623,9 @@ function displayResults(matchesForPeriod = null) {
     });
     
     // Scroll vers les résultats
-    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
 }
 
 // Génération de résultats simulés
@@ -576,7 +671,9 @@ function showError(message) {
             duration: 300,
             easing: 'easeInQuad',
             complete: () => {
-                document.body.removeChild(notification);
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
             }
         });
     }, 3000);
@@ -597,4 +694,15 @@ function getPeriodName(period) {
         week: 'Match de la Semaine'
     };
     return names[period] || 'Période inconnue';
-}                                                                                               
+}
+
+// DEBUG : Vérifier le DOM complet après chargement
+setTimeout(() => {
+    console.log('📋 DOM complet chargé');
+    console.log('- Champ côte:', document.getElementById('cote-input') ? '✅' : '❌');
+    console.log('- Bouton analyser:', document.getElementById('analyze-btn') ? '✅' : '❌');
+    console.log('- Slider périodes:', document.getElementById('period-slider') ? '✅' : '❌');
+    console.log('- Slider matchs:', document.getElementById('matches-slider') ? '✅' : '❌');
+    console.log('- Conteneur chargement:', document.getElementById('loading-container') ? '✅' : '❌');
+    console.log('- Section résultats:', document.getElementById('results-section') ? '✅' : '❌');
+}, 1000);

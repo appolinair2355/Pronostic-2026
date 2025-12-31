@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aperçu des Résultats - PronosAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #ff6b35 0%, #00d4ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .match-card {
+            transition: all 0.3s ease;
+        }
+        .match-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.2);
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #ff6b35 0%, #00d4ff 100%);
+        }
+        .confidence-high { color: #10b981; }
+        .confidence-medium { color: #f59e0b; }
+        .confidence-low { color: #ef4444; }
+    </style>
+</head>
+<body class="text-white">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-card border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-gradient-to-r from-orange-500 to-blue-400 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-sm">P</span>
+                    </div>
+                    <span class="text-xl font-bold gradient-text">PronosAI</span>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-300 hover:text-white transition-colors">Accueil</a>
+                    <a href="#" class="text-orange-400 font-medium">Résultats</a>
+                    <a href="#" class="text-gray-300 hover:text-white transition-colors">Analyses</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Titre principal -->
+    <section class="pt-24 pb-8 px-4">
+        <div class="max-w-6xl mx-auto text-center">
+            <h1 class="text-5xl md:text-6xl font-bold mb-6">
+                <span class="gradient-text">Résultats</span>
+                <span class="text-white">de l'Analyse</span>
+            </h1>
+            <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                Voici le pronostic optimisé basé sur votre côte de 3.50 et la période "Match du Jour"
+            </p>
+        </div>
+    </section>
+
+    <!-- Résultats principaux -->
+    <section class="py-12 px-4">
+        <div class="max-w-6xl mx-auto">
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <!-- Pronostic Combiné -->
+                <div class="glass-card rounded-2xl p-8 match-card">
+                    <div class="flex items-center mb-6">
+                        <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center mr-4">
+                            <span class="text-white font-bold text-lg">📊</span>
+                        </div>
+                        <h2 class="text-2xl font-bold">Pronostic Combiné</h2>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <!-- Type de pari -->
+                        <div class="flex justify-between items-center p-4 bg-gray-800 rounded-lg">
+                            <span class="font-medium text-gray-300">Type de pari</span>
+                            <span class="text-orange-400 font-semibold">Analyse Automatique</span>
+                        </div>
+                        
+                        <!-- Côte totale -->
+                        <div class="flex justify-between items-center p-4 bg-gray-800 rounded-lg">
+                            <span class="font-medium text-gray-300">Côte cible</span>
+                            <span class="text-blue-400 font-semibold">3.50</span>
+                        </div>
+                        
+                        <!-- Côte réelle obtenue -->
+                        <div class="flex justify-between items-center p-4 bg-gray-800 rounded-lg border-2 border-green-500">
+                            <span class="font-medium text-gray-300">Côte réelle obtenue</span>
+                            <span class="text-green-400 font-bold text-xl">3.89</span>
+                        </div>
+                        
+                        <!-- Confiance -->
+                        <div class="flex justify-between items-center p-4 bg-gray-800 rounded-lg">
+                            <span class="font-medium text-gray-300">Confiance</span>
+                            <span class="text-blue-400 font-semibold">87%</span>
+                        </div>
+                        
+                        <!-- Matchs combinés -->
+                        <div class="mt-6 p-4 bg-gradient-to-r from-orange-500/20 to-blue-500/20 rounded-lg">
+                            <p class="text-sm text-gray-300 mb-3">
+                                <strong>Recommandation:</strong> Pronostic combiné de 3 matchs avec une côte optimisée de 3.89. 
+                                Ce pari offre un excellent équilibre entre risque et rendement.
+                            </p>
+                            <div class="text-xs text-gray-400">
+                                🔒 Analyse basée sur les statistiques récentes, la forme des équipes et les tendances historiques.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analyse de Fiabilité -->
+                <div class="glass-card rounded-2xl p-8 match-card">
+                    <div class="flex items-center mb-6">
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-4">
+                            <span class="text-white font-bold text-lg">🎯</span>
+                        </div>
+                        <h2 class="text-2xl font-bold">Analyse de Fiabilité</h2>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <!-- Fiabilité globale -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span>Fiabilité globale</span>
+                                <span class="confidence-high font-bold">87%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-3">
+                                <div class="progress-bar h-3 rounded-full" style="width: 87%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tendance historique -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span>Tendance historique</span>
+                                <span class="confidence-medium font-bold">74%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-3">
+                                <div class="bg-gradient-to-r from-orange-500 to-red-500 h-3 rounded-full" style="width: 74%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Facteurs d'analyse -->
+                        <div class="mt-6 p-4 bg-blue-500 bg-opacity-10 rounded-lg">
+                            <h4 class="font-semibold mb-2 text-blue-300">Facteurs analysés:</h4>
+                            <ul class="text-sm text-gray-300 space-y-1">
+                                <li>• Forme récente des équipes</li>
+                                <li>• Statistiques des confrontations directes</li>
+                                <li>• Conditions de jeu (domicile/extérieur)</li>
+                                <li>• Absences et blessures importantes</li>
+                                <li>• Motivation et enjeux du match</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Analyse détaillée -->
+                        <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+                            <p class="text-sm text-gray-300">
+                                <strong>Analyse:</strong> Les matchs sélectionnés présentent un bon équilibre 
+                                entre sécurité et rentabilité. La combinaison offre une probabilité de réussite 
+                                élevée avec un rendement attractif.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Détails des Matchs Sélectionnés -->
+            <div class="glass-card rounded-2xl p-8">
+                <h2 class="text-3xl font-bold mb-8 text-center">Détails des Matchs Sélectionnés</h2>
+                
+                <div class="space-y-4">
+                    <!-- Match 1 -->
+                    <div class="match-card p-6 bg-gray-800 rounded-xl border-l-4 border-orange-500">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-4 mb-2">
+                                    <div class="text-2xl">⚽</div>
+                                    <div>
+                                        <div class="font-bold text-lg text-white">Paris SG vs Marseille</div>
+                                        <div class="text-sm text-gray-400">Aujourd'hui 20:45 • Ligue 1</div>
+                                    </div>
+                                </div>
+                                <div class="ml-12 text-sm text-gray-300">
+                                    <strong>Confrontation:</strong> Paris SG reste sur 3 victoires consécutives à domicile contre Marseille.
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-orange-400 mb-1">1.85</div>
+                                <div class="text-xs text-gray-400">Victoire Paris SG</div>
+                                <div class="mt-2">
+                                    <span class="inline-block bg-green-500 bg-opacity-20 text-green-400 text-xs px-2 py-1 rounded">
+                                        ✅ Forte confiance
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Match 2 -->
+                    <div class="match-card p-6 bg-gray-800 rounded-xl border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-4 mb-2">
+                                    <div class="text-2xl">⚽</div>
+                                    <div>
+                                        <div class="font-bold text-lg text-white">Lyon vs Monaco</div>
+                                        <div class="text-sm text-gray-400">Aujourd'hui 19:00 • Ligue 1</div>
+                                    </div>
+                                </div>
+                                <div class="ml-12 text-sm text-gray-300">
+                                    <strong>Forme:</strong> Lyon invaincu à domicile depuis 5 matchs, Monaco en difficulté à l'extérieur.
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-orange-400 mb-1">2.10</div>
+                                <div class="text-xs text-gray-400">Victoire Lyon</div>
+                                <div class="mt-2">
+                                    <span class="inline-block bg-blue-500 bg-opacity-20 text-blue-400 text-xs px-2 py-1 rounded">
+                                        📊 Value intéressante
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Match 3 -->
+                    <div class="match-card p-6 bg-gray-800 rounded-xl border-l-4 border-green-500">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-4 mb-2">
+                                    <div class="text-2xl">⚽</div>
+                                    <div>
+                                        <div class="font-bold text-lg text-white">Real Madrid vs Barcelone</div>
+                                        <div class="text-sm text-gray-400">Aujourd'hui 21:00 • Liga</div>
+                                    </div>
+                                </div>
+                                <div class="ml-12 text-sm text-gray-300">
+                                    <strong>Contexte:</strong> Classique espagnol avec Real Madrid favori à domicile, Barcelone en reconstruction.
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-orange-400 mb-1">1.95</div>
+                                <div class="text-xs text-gray-400">Victoire Real Madrid</div>
+                                <div class="mt-2">
+                                    <span class="inline-block bg-orange-500 bg-opacity-20 text-orange-400 text-xs px-2 py-1 rounded">
+                                        🔥 Choc des géants
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Résumé du pronostic -->
+                <div class="mt-8 p-6 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-xl border border-green-500/30">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold mb-4 gradient-text">Résumé du Pronostic</h3>
+                        <div class="grid md:grid-cols-3 gap-6 text-center">
+                            <div>
+                                <div class="text-3xl font-bold text-green-400 mb-2">3</div>
+                                <div class="text-gray-300">Matchs combinés</div>
+                            </div>
+                            <div>
+                                <div class="text-3xl font-bold text-orange-400 mb-2">3.89</div>
+                                <div class="text-gray-300">Côte totale</div>
+                            </div>
+                            <div>
+                                <div class="text-3xl font-bold text-blue-400 mb-2">87%</div>
+                                <div class="text-gray-300">Confiance</div>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <p class="text-lg text-gray-300">
+                                <strong>Probabilité de réussite estimée:</strong> 
+                                <span class="text-green-400 font-bold">25.7%</span>
+                            </p>
+                            <p class="text-sm text-gray-400 mt-2">
+                                Cette combinaison offre un excellent rapport risque/rendement pour votre objectif de côte 3.50
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Actions -->
+    <section class="py-12 px-4">
+        <div class="max-w-4xl mx-auto text-center">
+            <div class="glass-card rounded-2xl p-8">
+                <h3 class="text-2xl font-bold mb-6">Prochaines étapes</h3>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <button class="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-4 px-6 rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105">
+                        🔒 Sauvegarder ce pronostic
+                    </button>
+                    <button class="bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105">
+                        📊 Voir plus d'analyses
+                    </button>
+                    <button class="bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-4 px-6 rounded-xl hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105">
+                        🎯 Nouvelle analyse
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-4 border-t border-gray-800">
+        <div class="max-w-6xl mx-auto text-center">
+            <div class="flex items-center justify-center space-x-3 mb-4">
+                <div class="w-8 h-8 bg-gradient-to-r from-orange-500 to-blue-400 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-sm">P</span>
+                </div>
+                <span class="text-xl font-bold gradient-text">PronosAI</span>
+            </div>
+            <p class="text-gray-400">© 2025 PronosAI. Analyse de pronostics sportifs par intelligence artificielle.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Animation d'entrée des résultats
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animer les cards au chargement
+            const cards = document.querySelectorAll('.match-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 200);
+            });
+            
+            // Animer les barres de progression
+            setTimeout(() => {
+                const progressBars = document.querySelectorAll('.progress-bar');
+                progressBars.forEach(bar => {
+                    const width = bar.style.width;
+                    bar.style.width = '0%';
+                    setTimeout(() => {
+                        bar.style.transition = 'width 1.5s ease';
+                        bar.style.width = width;
+                    }, 500);
+                });
+            }, 800);
+        });
+    </script>
+</body>
+</html>

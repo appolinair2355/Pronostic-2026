@@ -3,225 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PronosAI - Analyse de Pronostics Sportifs</title>
+    <title>PronosAI Pro - IA 1xbet</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            font-family: 'Inter', sans-serif;
-        }
-        
+        * { font-family: 'Inter', sans-serif; }
         body {
             background: radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%);
             min-height: 100vh;
-            overflow-x: hidden;
         }
-        
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
-        
-        .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: #ff6b35;
-            border-radius: 50%;
-            opacity: 0.6;
-            animation: float 6s infinite ease-in-out;
-        }
-        
-        .particle.blue {
-            background: #00d4ff;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.6; }
-            50% { transform: translateY(-20px) translateX(10px); opacity: 1; }
-        }
-        
         .gradient-text {
             background: linear-gradient(135deg, #ff6b35 0%, #00d4ff 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
-        
         .glass-card {
             background: rgba(26, 26, 26, 0.8);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
-        .hover-lift {
-            transition: all 0.3s ease;
-        }
-        
-        .hover-lift:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(255, 107, 53, 0.2);
-        }
-        
         .loading-bar {
             background: linear-gradient(90deg, #ff6b35 0%, #00d4ff 50%, #ff6b35 100%);
             background-size: 200% 100%;
             animation: shimmer 2s infinite;
         }
-        
         @keyframes shimmer {
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
-        
-        .period-selector {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        
-        .period-selector::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .period-option {
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
-        }
-        
-        .period-option.active {
-            border-color: #ff6b35;
-            background: rgba(255, 107, 53, 0.1);
-            box-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
-        }
-        
-        .match-card {
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .match-card:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
-        }
-        
-        .match-card.selected {
-            border-color: #ff6b35;
-            box-shadow: 0 0 25px rgba(255, 107, 53, 0.4);
-        }
-        
-        .btn-analyze {
-            background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .btn-analyze:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 35px rgba(255, 107, 53, 0.4);
-        }
-        
-        .btn-analyze:active {
-            transform: translateY(0);
-        }
-        
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        
-        .reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-            transition: all 0.6s ease;
-        }
-        
-        .stagger {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        
-        .stagger.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        
-        .input-glow:focus {
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-            border-color: #00d4ff;
-        }
-        
-        .splide__arrow {
-            background: rgba(255, 107, 53, 0.8) !important;
-            border: none !important;
-        }
-        
-        .splide__arrow:hover {
-            background: #ff6b35 !important;
-        }
-        
-        .pulse {
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        .glow {
-            box-shadow: 0 0 30px rgba(255, 107, 53, 0.5);
-        }
-        
-        .error-shake {
-            animation: shake 0.5s ease-in-out;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        
-        /* CORRECTIONS : S'assurer que le champ est toujours visible */
-        input[type="number"] {
-            -moz-appearance: textfield !important;
-            appearance: textfield !important;
-            display: block !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            min-height: 56px !important;
-        }
-        
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
-            -webkit-appearance: none !important;
-            margin: 0 !important;
-        }
-        
-        #cote-input {
-            background: #111827 !important; /* gray-900 en Tailwind */
-            border: 2px solid #374151 !important; /* gray-700 */
-        }
-        
-        #cote-input:focus {
-            border-color: #ff6b35 !important; /* orange-500 */
-            box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.3) !important;
-        }
     </style>
 </head>
 <body class="text-white">
-    <!-- Particules d'arrière-plan -->
-    <div class="particles" id="particles"></div>
-    
     <!-- Navigation -->
     <nav class="fixed top-0 w-full z-50 glass-card border-b border-gray-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -230,199 +43,194 @@
                     <div class="w-8 h-8 bg-gradient-to-r from-orange-500 to-blue-400 rounded-lg flex items-center justify-center">
                         <span class="text-white font-bold text-sm">P</span>
                     </div>
-                    <span class="text-xl font-bold gradient-text">PronosAI</span>
+                    <span class="text-xl font-bold gradient-text">PronosAI Pro</span>
                 </div>
                 <div class="flex space-x-6">
-                    <a href="#" class="text-gray-300 hover:text-white transition-colors">Accueil</a>
-                    <a href="#" class="text-gray-300 hover:text-white transition-colors">Matchs</a>
-                    <a href="#" class="text-gray-300 hover:text-white transition-colors">Analyses</a>
+                    <a href="#" class="text-gray-300 hover:text-white">Accueil</a>
+                    <a href="#" class="text-gray-300 hover:text-white">Historique</a>
+                    <a href="#" class="text-gray-300 hover:text-white">API</a>
                 </div>
             </div>
         </div>
     </nav>
-    
-    <!-- Hero Section -->
+
+    <!-- Configuration -->
     <section class="pt-24 pb-16 px-4">
-        <div class="max-w-6xl mx-auto text-center">
-            <h1 class="text-5xl md:text-7xl font-bold mb-6 reveal">
-                <span class="gradient-text">Pronostics</span><br>
-                <span class="text-white">Intelligents</span>
+        <div class="max-w-5xl mx-auto">
+            <h1 class="text-5xl font-bold text-center mb-12">
+                <span class="gradient-text">Générateur de Combinés IA</span>
             </h1>
-            <p class="text-xl text-gray-300 mb-12 max-w-3xl mx-auto reveal">
-                Analysez vos matchs avec l'intelligence artificielle. Obtenez des pronostics combinés fiables basés sur des données réelles et des cotes optimisées.
-            </p>
-        </div>
-    </section>
-    
-    <!-- Sélecteur de Périodes -->
-    <section class="py-12 px-4">
-        <div class="max-w-6xl mx-auto">
-            <h2 class="text-3xl font-bold text-center mb-8 reveal">Sélectionnez votre période</h2>
             
-            <div class="splide" id="period-slider">
-                <div class="splide__track">
-                    <ul class="splide__list">
-                        <li class="splide__slide">
-                            <div class="period-option glass-card rounded-xl p-6 text-center cursor-pointer mx-2" data-period="today">
-                                <div class="text-4xl mb-3">⚽</div>
-                                <h3 class="text-xl font-semibold mb-2">Match du Jour</h3>
-                                <p class="text-gray-400 text-sm">Aujourd'hui</p>
-                            </div>
-                        </li>
-                        <li class="splide__slide">
-                            <div class="period-option glass-card rounded-xl p-6 text-center cursor-pointer mx-2" data-period="tomorrow">
-                                <div class="text-4xl mb-3">🔮</div>
-                                <h3 class="text-xl font-semibold mb-2">Match de Demain</h3>
-                                <p class="text-gray-400 text-sm">J+1</p>
-                            </div>
-                        </li>
-                        <li class="splide__slide">
-                            <div class="period-option glass-card rounded-xl p-6 text-center cursor-pointer mx-2" data-period="day2">
-                                <div class="text-4xl mb-3">📅</div>
-                                <h3 class="text-xl font-semibold mb-2">Match dans 2 Jours</h3>
-                                <p class="text-gray-400 text-sm">J+2</p>
-                            </div>
-                        </li>
-                        <li class="splide__slide">
-                            <div class="period-option glass-card rounded-xl p-6 text-center cursor-pointer mx-2" data-period="day3">
-                                <div class="text-4xl mb-3">📆</div>
-                                <h3 class="text-xl font-semibold mb-2">Match dans 3 Jours</h3>
-                                <p class="text-gray-400 text-sm">J+3</p>
-                            </div>
-                        </li>
-                        <li class="splide__slide">
-                            <div class="period-option glass-card rounded-xl p-6 text-center cursor-pointer mx-2" data-period="week">
-                                <div class="text-4xl mb-3">🏆</div>
-                                <h3 class="text-xl font-semibold mb-2">Match de la Semaine</h3>
-                                <p class="text-gray-400 text-sm">7 prochains jours</p>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
-    
-    <!-- Zone de Cote -->
-    <section class="py-12 px-4">
-        <div class="max-w-4xl mx-auto">
-            <div class="glass-card rounded-2xl p-8 reveal">
-                <h2 class="text-2xl font-bold mb-6 text-center">Côte Maximale</h2>
-                <div class="max-w-md mx-auto">
-                    <label class="block text-sm font-medium text-gray-300 mb-3">Entrez la côte maximale souhaitée</label>
-                    <div class="relative">
-                        <input 
-                            type="number" 
-                            step="0.01" 
-                            min="1.10" 
-                            max="10.00" 
-                            placeholder="Ex: 2.50"
-                            class="w-full px-4 py-4 bg-gray-900 border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 input-glow focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50"
-                            id="cote-input"
-                        >
+            <div class="glass-card rounded-2xl p-8">
+                <form id="config-form" class="space-y-8">
+                    
+                    <!-- Période -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4">📅 Période de matches</h3>
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
+                                <input type="radio" name="period" value="today" class="mr-3" checked>
+                                <div>
+                                    <div class="font-medium">Aujourd'hui</div>
+                                    <div class="text-sm text-gray-400">Prochaines 24h</div>
+                                </div>
+                            </label>
+                            <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
+                                <input type="radio" name="period" value="tomorrow" class="mr-3">
+                                <div>
+                                    <div class="font-medium">Demain</div>
+                                    <div class="text-sm text-gray-400">24h-48h</div>
+                                </div>
+                            </label>
+                            <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
+                                <input type="radio" name="period" value="custom" class="mr-3">
+                                <div>
+                                    <div class="font-medium">Personnalisé</div>
+                                    <div class="text-sm text-gray-400">
+                                        <input type="number" min="1" max="7" value="3" class="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1"> jours
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3 text-center">Côte comprise entre 1.10 et 10.00</p>
-                </div>
+
+                    <!-- Côte cible -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4">🎯 Côte cible</h3>
+                        <div class="flex items-center space-x-4">
+                            <input type="number" id="target-odd" min="2.0" max="100.0" step="0.01" value="5.0" 
+                                   class="w-32 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white">
+                            <span class="text-gray-400">(Ex: 2.0 à 100.0)</span>
+                        </div>
+                    </div>
+
+                    <!-- Nombre de matchs -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4">📊 Nombre de matchs max</h3>
+                        <div class="grid grid-cols-4 gap-3">
+                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
+                                <input type="radio" name="maxMatches" value="3" class="mr-2"> 3 matchs
+                            </label>
+                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
+                                <input type="radio" name="maxMatches" value="5" class="mr-2" checked> 5 matchs
+                            </label>
+                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
+                                <input type="radio" name="maxMatches" value="7" class="mr-2"> 7 matchs
+                            </label>
+                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
+                                <input type="radio" name="maxMatches" value="8" class="mr-2"> 8 matchs
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Marchés -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4">🎲 Marchés à inclure</h3>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <label class="flex items-center glass-card p-3 rounded-lg">
+                                <input type="checkbox" name="markets" value="victoire" class="mr-3" checked>
+                                Victoire simple (1N2)
+                            </label>
+                            <label class="flex items-center glass-card p-3 rounded-lg">
+                                <input type="checkbox" name="markets" value="handicap" class="mr-3" checked>
+                                Handicap asiatique
+                            </label>
+                            <label class="flex items-center glass-card p-3 rounded-lg">
+                                <input type="checkbox" name="markets" value="total_buts" class="mr-3" checked>
+                                Total buts (O/U)
+                            </label>
+                            <label class="flex items-center glass-card p-3 rounded-lg">
+                                <input type="checkbox" name="markets" value="btts" class="mr-3" checked>
+                                Les deux équipes marquent
+                            </label>
+                            <label class="flex items-center glass-card p-3 rounded-lg">
+                                <input type="checkbox" name="markets" value="corners" class="mr-3" checked>
+                                Total corners
+                            </label>
+                            <label class="flex items-center glass-card p-3 rounded-lg">
+                                <input type="checkbox" name="markets" value="tirs_cadres" class="mr-3" checked>
+                                Tirs cadrés (par équipe)
+                            </label>
+                            <label class="flex items-center glass-card p-3 rounded-lg text-gray-500">
+                                <input type="checkbox" name="markets" value="cartons" class="mr-3" disabled>
+                                Cartons jaunes (à venir)
+                            </label>
+                            <label class="flex items-center glass-card p-3 rounded-lg text-red-400">
+                                <input type="checkbox" name="markets" value="score_exact" class="mr-3">
+                                ⚠️ Score exact (réservé aux pros)
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="generate-btn" 
+                            class="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all">
+                        🚀 GÉNÉRER MON COMBINÉ
+                    </button>
+                </form>
             </div>
         </div>
     </section>
-    
-    <!-- Matchs Disponibles -->
-    <section class="py-12 px-4">
-        <div class="max-w-7xl mx-auto">
-            <h2 class="text-3xl font-bold text-center mb-8 reveal">Matchs Disponibles</h2>
-            <p class="text-center text-gray-400 mb-8 max-w-2xl mx-auto">
-                Les matchs de la période sélectionnée seront automatiquement analysés pour trouver le meilleur pronostic correspondant à votre côte souhaitée.
-            </p>
-            
-            <div class="splide" id="matches-slider">
-                <div class="splide__track">
-                    <ul class="splide__list" id="matches-list">
-                        <!-- Les matchs seront chargés dynamiquement -->
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
-    
-    <!-- Bouton Analyser -->
-    <section class="py-12 px-4">
+
+    <!-- Progression -->
+    <section id="progress-section" class="py-12 px-4 hidden">
         <div class="max-w-4xl mx-auto text-center">
-            <button 
-                id="analyze-btn" 
-                class="btn-analyze text-white font-bold py-4 px-12 rounded-xl text-lg hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled
-            >
-                <span id="btn-text">Analyser Automatiquement</span>
-                <div id="btn-spinner" class="hidden inline-block ml-2 w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            </button>
-            <!-- TEXTE CORRIGÉ AVEC ESPACES -->
-            <p class="text-gray-400 mt-4 text-sm max-w-md mx-auto text-center">
-                L'analyse se lancera automatiquement après la saisie de votre côte et la sélection d'une période
-            </p>
+            <div class="glass-card p-8 rounded-2xl">
+                <h3 class="text-2xl font-bold mb-6">Analyse IA en cours...</h3>
+                <div class="w-full bg-gray-800 rounded-full h-4 mb-4">
+                    <div id="progress-bar" class="bg-gradient-to-r from-orange-500 to-blue-500 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progress-text" class="text-gray-400">Initialisation...</p>
+            </div>
         </div>
     </section>
-    
-    <!-- Barre de Chargement -->
-    <div id="loading-container" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden items-center justify-center">
-        <div class="text-center">
-            <div class="w-80 h-2 bg-gray-800 rounded-full overflow-hidden mb-6">
-                <div class="loading-bar h-full w-full"></div>
-            </div>
-            <p class="text-xl gradient-text pulse">Analyse en cours...</p>
-            <p class="text-gray-400 mt-2">Recherche des meilleurs pronostics combinés</p>
-        </div>
-    </div>
-    
+
     <!-- Résultats -->
     <section id="results-section" class="py-16 px-4 hidden">
         <div class="max-w-6xl mx-auto">
-            <h2 class="text-3xl font-bold text-center mb-12 gradient-text">Résultats de l'Analyse</h2>
+            <h2 class="text-3xl font-bold text-center mb-12 gradient-text">
+                🎯 Votre Combiné Optimisé
+            </h2>
             
-            <div class="grid md:grid-cols-2 gap-8">
-                <div class="glass-card rounded-2xl p-8 hover-lift">
-                    <h3 class="text-2xl font-bold mb-6 flex items-center">
-                        <span class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3 text-sm">📊</span>
-                        Pronostic Combiné
-                    </h3>
-                    <div id="pronostic-content" class="space-y-4">
-                        <!-- Contenu dynamique -->
+            <div class="glass-card rounded-2xl p-8 mb-8">
+                <div class="text-center mb-6">
+                    <div class="text-4xl font-bold text-green-400 mb-2" id="total-odds">0.00</div>
+                    <div class="text-gray-400">Côte totale du combiné</div>
+                </div>
+                <div class="grid md:grid-cols-3 gap-6 text-center mb-8">
+                    <div>
+                        <div class="text-2xl font-bold text-orange-400" id="match-count">0</div>
+                        <div class="text-sm text-gray-300">Matchs sélectionnés</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-blue-400" id="confidence">0%</div>
+                        <div class="text-sm text-gray-300">Confiance moyenne</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-purple-400" id="target-diff">0.00</div>
+                        <div class="text-sm text-gray-300">Écart côte cible</div>
                     </div>
                 </div>
-                
-                <div class="glass-card rounded-2xl p-8 hover-lift">
-                    <h3 class="text-2xl font-bold mb-6 flex items-center">
-                        <span class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3 text-sm">🎯</span>
-                        Analyse de Fiabilité
-                    </h3>
-                    <div id="fiabilite-content" class="space-y-4">
-                        <!-- Contenu dynamique -->
-                    </div>
+                <div id="combination-details" class="space-y-4">
+                    <!-- Les pronostics seront injectés ici -->
                 </div>
             </div>
-            
-            <div class="mt-12 glass-card rounded-2xl p-8">
-                <h3 class="text-2xl font-bold mb-6 text-center">Détails des Matchs Sélectionnés</h3>
-                <div id="match-details" class="space-y-4">
-                    <!-- Contenu dynamique -->
+
+            <div class="glass-card rounded-2xl p-8">
+                <h3 class="text-xl font-bold mb-4">🧠 Analyse IA détaillée</h3>
+                <div id="explanation" class="text-gray-300 leading-relaxed">
+                    <!-- Explication générée par IA -->
                 </div>
+            </div>
+
+            <div class="mt-8 text-center">
+                <button id="regenerate-btn" class="py-3 px-8 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
+                    🎲 Générer un autre combiné
+                </button>
             </div>
         </div>
     </section>
-    
-    <!-- Footer -->
-    <footer class="py-12 px-4 border-t border-gray-800">
-        <div class="max-w-6xl mx-auto text-center">
-            <div class="flex items-center justify-center space-x-3 mb-4">
-                <div class="w-8 h-8 bg-gradient-to-r from-orange-500 to-blue-400 rounded-lg flex items-center justify-center">
-                    <span class="text-white font-bold text-sm">P</span>
-                </div>
-                <span class="text-xl font-bold gradient-text">PronosAI</span>
-            </div>
-            <p class="text-gray-400">© 2025 PronosAI. Tous droits réservés.</p>
-        </div>
-    </footer>
-    
-    <script src="main.js"></script>
+
+    <script src="client.js"></script>
 </body>
 </html>
+

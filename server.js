@@ -1,4 +1,3 @@
-// server.js - Version OpenAI Complète
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -8,9 +7,10 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Configuration OpenAI
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 60000, // 60 secondes pour les requêtes complexes
+    timeout: 60000,
     maxRetries: 2,
 });
 
@@ -26,9 +26,9 @@ app.post('/api/generate-combine', async (req, res) => {
     const startTime = Date.now();
     
     try {
-        // Validation
         const config = req.body;
         
+        // Validation
         if (!validateConfig(config)) {
             return res.status(400).json({
                 success: false,
@@ -37,24 +37,20 @@ app.post('/api/generate-combine', async (req, res) => {
             });
         }
 
-        // ÉTAPE 1 : Récupérer les matchs du jour
         const progressCallback = (percentage) => {
-            // En vrai, on enverrait via WebSocket
             console.log(`📊 Progression: ${percentage}%`);
         };
 
         progressCallback(10);
         const matchesWithData = await fetchMatchesFromOpenAI(config, progressCallback);
         
-        // ÉTAPE 2 : Pour chaque match, obtenir les 2 éléments les plus sûrs
         progressCallback(30);
         const matchesWithSafeElements = await Promise.all(
-            matchesWithData.map(match => 
+            matchesWithData.slice(0, config.maxMatches * 2).map(match => 
                 getSafeElementsForMatch(match, config, progressCallback)
             )
         );
 
-        // ÉTAPE 3 : Générer toutes les combinaisons valides
         progressCallback(50);
         const validCombinations = generateValidCombinations(
             matchesWithSafeElements,
@@ -64,19 +60,17 @@ app.post('/api/generate-combine', async (req, res) => {
         if (validCombinations.length === 0) {
             return res.status(404).json({
                 success: false,
-                error: 'Aucune combinaison valide trouvée avec ces critères',
+                error: 'Aucune combinaison valide trouvée',
                 suggestion: 'Essayez une côte cible plus basse ou moins de contraintes'
             });
         }
 
-        // ÉTAPE 4 : Trouver la meilleure combinaison
         progressCallback(70);
         const bestCombination = findBestCombination(
             validCombinations,
             config.targetOdd
         );
 
-        // ÉTAPE 5 : Enrichir avec explications IA
         progressCallback(85);
         const enrichedResult = await enrichWithExplanations(bestCombination);
 
@@ -101,8 +95,7 @@ app.post('/api/generate-combine', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Erreur lors de la génération du combiné',
-            details: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            details: error.message
         });
     }
 });
@@ -126,158 +119,199 @@ function validateConfig(config) {
     });
 }
 
+function getValidationErrors(config) {
+    const errors = [];
+    if (!(config.targetOdd >= 2.0 && config.targetOdd <= 100.0)) 
+        errors.push('Côte doit être entre 2.0 et 100.0');
+    if (!(config.maxMatches >= 2 && config.maxMatches <= 8)) 
+        errors.push('Nombre de matchs entre 2 et 8');
+    if (!Array.isArray(config.markets) || config.markets.length < 2)
+        errors.push('Au moins 2 marchés requis');
+    return errors;
+}
+
 async function fetchMatchesFromOpenAI(config, progressCallback) {
     const periodText = {
         today: "aujourd'hui (prochaines 24h)",
         tomorrow: "demain (24h-48h)",
-        custom: `dans les ${config.daysAhead} jours`
+        custom: `dans les ${config.daysAhead} prochains jours`
     };
 
     const prompt = `
-Tu es un expert en pronostics footballistiques professionnel, alimenté par l'IA la plus précise.
-Ta tâche est de fournir les matchs ${periodText[config.period]} avec leurs données détaillées.
+Tu es un bookmaker professionnel avec accès aux données en temps réel.
+Donne-moi les 15 matchs de football les plus importants ${periodText[config.period]}.
 
-FUSEAU HORAIRE : Heure du Bénin (Africa/Porto-Novo, GMT+1)
+FUSEAU : Heure du Bénin (Africa/Porto-Novo, GMT+1)
 
-INFORMATIONS À FOURNIR POUR CHAQUE MATCH :
-1. Heure exacte (format: HH:MM)
-2. Équipe Domicile vs Équipe Extérieur
-3. Cotes 1x2 (victoire domicile / nul / victoire extérieur)
-4. Handicap asiatique (ex: H(-0.5) pour favori)
-5. Total buts (Over/Under 2.5)
-6. Les deux équipes marquent (btts: oui/non)
-7. Corners (Total, H1+, H2+)
-8. Tirs cadrés (Total, H1+, H2+)
-9. Statistiques clés (forme, buts moyens, etc.)
+POUR CHAQUE MATCH, fournis EXACTEMENT :
+🕒 Heure (HH:MM)
+⚽ Équipe1 vs Équipe2
+🏆 Cotes: 1.XX / 3.XX / 4.XX
+🎯 Handicap: H(-0.5) @1.XX
+⚽ Total buts: Over/Under 2.5 @1.XX
+🔁 BTTS: Oui/Non @1.XX
+📐 Corners: +8.5 @1.XX | H1+4.5 @1.XX
+🎯 Tirs cadrés: +7.5 @1.90 | H2+3.5 @1.XX
+📊 Forme récente: H1 (W-D-L) | H2 (W-D-L)
 
-RÈGLES :
-- Ne fournir QUE les matchs de football (soccer)
-- Ne pas inclure les matchs amicaux ou de jeunes
-- Donner les cotes réelles des bookmakers
-- Être précis et concis
-
-FORMAT OBLIGATOIRE :
+FORMAT STRICT :
 ━━━━━━━━━━━━━━━━━━━━━━━
-🕒 HH:MM | Équipe1 vs Équipe2
+🕒 14:30 | Paris SG vs Marseille
 🏆 Cotes: 1.85 / 3.40 / 4.20
 🎯 Handicap: H(-0.5) @1.95
 ⚽ Total: Over 2.5 @1.80
 🔁 BTTS: Oui @1.70
-📐 Corners: +8.5 @1.85 | H1+4.5 @1.65
+📐 Corners: +8.5 @1.85
 🎯 Tirs: +7.5 @1.90 | H2+3.5 @1.75
 📊 Forme: H1 (W-D-W) | H2 (L-W-L)
 ━━━━━━━━━━━━━━━━━━━━━━━
 
-MAINTENANT, donne-moi les 15 matchs les plus importants ${periodText[config.period]}.
+CRITICAL : Réponds UNIQUEMENT en français, avec des cotes réalistes.
 `;
 
-    try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
-            messages: [
-                { role: "system", content: "Tu es un bookmaker professionnel avec accès aux données en temps réel." },
-                { role: "user", content: prompt }
-            ],
-            temperature: 0.3,
-            max_tokens: 2000,
-        });
+    const completion = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+            { role: "system", content: "Tu es un bookmaker professionnel avec les données en temps réel." },
+            { role: "user", content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 2500,
+    });
 
-        return parseMatchesResponse(completion.choices[0].message.content);
-    } catch (error) {
-        console.error('Erreur lors du fetch des matchs:', error);
-        throw new Error('Impossible de récupérer les matchs depuis OpenAI');
-    }
+    return parseMatchesResponse(completion.choices[0].message.content);
 }
 
-function parseMatchesResponse(aiResponse) {
+function parseMatchesResponse(content) {
     const matches = [];
-    const matchBlocks = aiResponse.split('━━━━━━━━━━━━━━━━━━━━━━━').filter(b => b.trim());
+    const blocks = content.split('━━━━━━━━━━━━━━━━━━━━━━━').filter(b => b.trim());
     
-    for (const block of matchBlocks) {
-        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
-        const match = {};
-        
-        for (const line of lines) {
-            if (line.startsWith('🕒')) {
-                const parts = line.split(' | ');
-                match.time = parts[0].replace('🕒 ', '');
-                match.teams = parts[1];
-                const [home, away] = match.teams.split(' vs ');
-                match.homeTeam = home.trim();
-                match.awayTeam = away.trim();
+    for (const block of blocks) {
+        try {
+            const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+            const match = { id: Math.random().toString(36).substr(2, 9) };
+            
+            for (const line of lines) {
+                if (line.startsWith('🕒')) {
+                    const parts = line.split(' | ');
+                    match.time = parts[0].replace('🕒 ', '');
+                    const teams = parts[1].split(' vs ');
+                    match.homeTeam = teams[0].trim();
+                    match.awayTeam = teams[1].trim();
+                    match.teams = `${match.homeTeam} vs ${match.awayTeam}`;
+                }
+                if (line.startsWith('🏆 Cotes:')) {
+                    const odds = line.match(/(\d+\.\d+)/g);
+                    match.odds = { home: parseFloat(odds[0]), draw: parseFloat(odds[1]), away: parseFloat(odds[2]) };
+                }
+                if (line.includes('Handicap:')) {
+                    const handicap = line.match(/H\([-+]?\d+\.\d+\) @(\d+\.\d+)/);
+                    if (handicap) match.handicap = { line: handicap[0].split(' ')[0], odds: parseFloat(handicap[1]) };
+                }
+                if (line.includes('Total:')) {
+                    const total = line.match(/(Over|Under) (\d+\.\d+) @(\d+\.\d+)/);
+                    if (total) match.totalGoals = { type: total[1], line: parseFloat(total[2]), odds: parseFloat(total[3]) };
+                }
+                if (line.includes('BTTS:')) {
+                    const btts = line.match(/(Oui|Non) @(\d+\.\d+)/);
+                    if (btts) match.btts = { value: btts[1], odds: parseFloat(btts[2]) };
+                }
+                if (line.includes('Corners:')) {
+                    const corners = line.match(/\+(\d+\.\d+) @(\d+\.\d+)/);
+                    if (corners) match.corners = { line: parseFloat(corners[1]), odds: parseFloat(corners[2]) };
+                }
+                if (line.includes('Tirs:')) {
+                    const shots = line.match(/\+(\d+\.\d+) @(\d+\.\d+)/g);
+                    if (shots) {
+                        match.shots = shots.map(s => {
+                            const match = s.match(/\+(\d+\.\d+) @(\d+\.\d+)/);
+                            return { line: parseFloat(match[1]), odds: parseFloat(match[2]) };
+                        });
+                    }
+                }
             }
-            if (line.startsWith('🏆 Cotes:')) {
-                const odds = line.match(/(\d+\.\d+)/g);
-                match.odds = {
-                    home: parseFloat(odds[0]),
-                    draw: parseFloat(odds[1]),
-                    away: parseFloat(odds[2])
-                };
-            }
-            // ... parser les autres lignes ...
+            
+            if (match.teams) matches.push(match);
+        } catch (e) {
+            console.warn('Erreur parsing bloc:', e);
         }
-        
-        if (match.teams) matches.push(match);
     }
     
-    return matches;
+    return matches.slice(0, 15); // Max 15 matchs
 }
 
 async function getSafeElementsForMatch(match, config, progressCallback) {
-    const markets = config.markets.join(', ');
-    
     const prompt = `
-Pour le match ${match.teams} (heure Bénin: ${match.time}),
-choisis EXACTEMENT 2 pronostics parmi ces marchés: ${markets}.
+Match: ${match.teams} (${match.time} Bénin)
 
-RÈGLES DE SÉLECTION :
-1. Sélectionner les 2 éléments avec la plus haute probabilité (>70%)
-2. ÉVITER de combiner "victoire" et "tirs cadrés" sur le même match
-3. Donner la cote réelle pour chaque élément
-4. Expliquer brièvement pourquoi (1 phrase)
+Parmi ces marchés: ${config.markets.join(', ')},
+choisis EXACTEMENT 2 éléments avec la PLUS HAUTE probabilité (>70%).
 
-FORMAT :
+RÈGLES À RESPECTER :
+1. Ne JAMAIS combiner "victoire" et "tirs cadrés" sur le même match
+2. Pour "tirs cadrés", ne proposer qu'UN SEUL choix par match
+3. Les cotes doivent être réalistes (1.50 à 2.50)
+4. Justifier chaque choix en 1 phrase
+
+FORMAT STRICT :
 ━━━━━━━━━━━━━━━━━━━━━━━
-⚽ Équipe1 vs Équipe2
-🎯 Élément 1: [type] - Côte X.XX - Explication
-🎯 Élément 2: [type] - Côte X.XX - Explication
+⚽ ${match.teams}
+🎯 Élément 1: [type] - [valeur] - Côte X.XX - [explication]
+🎯 Élément 2: [type] - [valeur] - Côte X.XX - [explication]
 🧠 Confiance: XX%
 ━━━━━━━━━━━━━━━━━━━━━━━
 `;
 
-    try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
-            messages: [
-                { role: "system", content: "Tu es un analyste sportif qui ne prend que les paris les plus sûrs." },
-                { role: "user", content: prompt }
-            ],
-            temperature: 0.2,
-            max_tokens: 500,
-        });
+    const completion = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+            { role: "system", content: "Tu es un analyste sportif ultra-précis, tu ne prends que les paris sûrs (>70%)." },
+            { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 600,
+    });
 
-        return parseSafeElements(completion.choices[0].message.content);
-    } catch (error) {
-        console.error(`Erreur pour ${match.teams}:`, error);
-        // Retourner des éléments par défaut si erreur
-        return [
-            { type: 'victoire', value: 'V1', odds: 1.85, explanation: 'Sélection par défaut' },
-            { type: 'total_buts', value: 'Under 2.5', odds: 1.70, explanation: 'Sélection par défaut' }
-        ];
+    const elements = parseSafeElements(completion.choices[0].message.content);
+    return { ...match, elements };
+}
+
+function parseSafeElements(content) {
+    const elements = [];
+    const lines = content.split('\n').filter(l => l.includes('Élément'));
+    
+    for (const line of lines) {
+        const match = line.match(/Élément \d+: (\w+) - (.+) - Côte (\d+\.\d+) - (.+)/);
+        if (match) {
+            elements.push({
+                type: match[1],
+                value: match[2],
+                odds: parseFloat(match[3]),
+                explanation: match[4]
+            });
+        }
     }
+    
+    // Vérifier la confiance
+    const confidenceMatch = content.match(/Confiance: (\d+)%/);
+    const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 70;
+    
+    return elements.slice(0, 2).map(e => ({ ...e, confidence }));
 }
 
 function generateValidCombinations(matches, config) {
     const combinations = [];
     
-    function backtrack(index, currentCombo, currentOdds) {
+    function backtrack(index, currentCombo, currentOdds, usedTypes) {
+        // Condition d'arrêt : atteint le max ou trouvé une cote valide
         if (currentCombo.length >= 2 && 
-            currentOdds >= config.targetOdd * 0.5 && 
-            currentOdds <= config.targetOdd * 2.0) {
+            currentOdds >= config.targetOdd * 0.4 && 
+            currentOdds <= config.targetOdd * 2.5) {
             combinations.push({
                 matches: [...currentCombo],
                 odds: currentOdds,
-                confidence: calculateConfidence(currentCombo)
+                confidence: calculateAverageConfidence(currentCombo),
+                typesUsed: new Set([...usedTypes])
             });
         }
         
@@ -285,54 +319,49 @@ function generateValidCombinations(matches, config) {
             return;
         }
         
-        // Essayer d'ajouter ce match avec chaque élément sûr
+        // Essayer d'ajouter ce match avec chaque élément
         for (const element of matches[index].elements) {
-            if (isValidCombination(currentCombo, matches[index], element)) {
-                currentCombo.push({
-                    match: matches[index],
-                    element: element
-                });
-                backtrack(index + 1, currentCombo, currentOdds * element.odds);
-                currentCombo.pop();
-            }
+            // Vérifier contraintes (pas victoire + tirs sur même match)
+            const hasConflict = currentCombo.some(item => 
+                item.match.id === matches[index].id && 
+                ((item.element.type === 'victoire' && element.type === 'tirs_cadres') ||
+                 (item.element.type === 'tirs_cadres' && element.type === 'victoire'))
+            );
+            
+            if (hasConflict) continue;
+            
+            // Vérifier diversification
+            const futureTypes = new Set([...usedTypes, element.type]);
+            if (futureTypes.size < 2 && currentCombo.length > 0) continue;
+            
+            currentCombo.push({ match: matches[index], element });
+            backtrack(index + 1, currentCombo, currentOdds * element.odds, [...usedTypes, element.type]);
+            currentCombo.pop();
         }
         
-        // Option de sauter ce match
-        backtrack(index + 1, currentCombo, currentOdds);
+        // Sauter ce match
+        backtrack(index + 1, currentCombo, currentOdds, usedTypes);
     }
     
-    backtrack(0, [], 1.0);
+    backtrack(0, [], 1.0, []);
     return combinations;
 }
 
-function isValidCombination(existingCombo, newMatch, newElement) {
-    // CONTRAINTE : Pas de victoire + tirs_cadres sur même match
-    if (newElement.type === 'tirs_cadres' || newElement.type === 'victoire') {
-        const conflictType = newElement.type === 'tirs_cadres' ? 'victoire' : 'tirs_cadres';
-        for (const item of existingCombo) {
-            if (item.match.id === newMatch.id && item.element.type === conflictType) {
-                return false;
-            }
-        }
-    }
-    
-    // CONTRAINTE : Max 8 matchs
-    if (existingCombo.length >= 7) return false;
-    
-    // CONTRAINTE : Diversification
-    const existingTypes = new Set(existingCombo.map(item => item.element.type));
-    existingTypes.add(newElement.type);
-    if (existingTypes.size < 2) return false;
-    
-    return true;
+function calculateAverageConfidence(combo) {
+    if (!combo.length) return 0;
+    const sum = combo.reduce((acc, item) => acc + (item.element.confidence || 70), 0);
+    return sum / combo.length;
 }
 
 function findBestCombination(combinations, targetOdd) {
+    if (!combinations.length) return null;
+    
     return combinations.reduce((best, current) => {
+        if (!best) return current;
+        
         const currentDiff = Math.abs(current.odds - targetOdd);
         const bestDiff = Math.abs(best.odds - targetOdd);
         
-        // Priorité à la différence de cote, puis à la confiance
         if (currentDiff < bestDiff || 
            (currentDiff === bestDiff && current.confidence > best.confidence)) {
             return current;
@@ -342,18 +371,18 @@ function findBestCombination(combinations, targetOdd) {
 }
 
 async function enrichWithExplanations(combination) {
-    // Utiliser OpenAI pour générer une explication détaillée
+    if (!combination) return null;
+    
     const matchNames = combination.matches.map(m => m.match.teams).join(', ');
     
     const prompt = `
-Analyse ce combiné de paris sportifs et explique pourquoi il est solide:
+Analyse ce combiné de paris et explique pourquoi il est solide :
+- Matchs: ${matchNames}
+- Cote totale: ${combination.odds.toFixed(2)}
+- Confiance: ${combination.confidence.toFixed(0)}%
 
-Matchs: ${matchNames}
-Cote totale: ${combination.odds}
-Confiance: ${combination.confidence}%
-
-Donne-moi :
-1. Analyse globale du risque (2-3 phrases)
+Donne :
+1. Analyse du risque global (2-3 phrases)
 2. Point fort du combiné
 3. Point d'attention
 4. Recommandation de mise
@@ -363,46 +392,44 @@ Donne-moi :
         const completion = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [
-                { role: "system", content: "Tu es un conseiller en paris sportifs." },
+                { role: "system", content: "Tu es un conseiller en paris sportifs professionnel." },
                 { role: "user", content: prompt }
             ],
             temperature: 0.5,
-            max_tokens: 300,
+            max_tokens: 400,
         });
-
+        
         combination.explanation = completion.choices[0].message.content;
     } catch (error) {
-        combination.explanation = "Analyse non disponible.";
+        combination.explanation = "Analyse non disponible pour ce combiné.";
     }
     
     return combination;
 }
 
 // ============================================================================
-// 📍 ROUTES UTILES
+// 📍 ROUTES SUPPLÉMENTAIRES
 // ============================================================================
 
 app.get('/api/config', (req, res) => {
     res.json({
         hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-        modelsAvailable: ['gpt-4-turbo-preview', 'gpt-3.5-turbo'],
-        maxMatches: 8,
-        minOdd: 2.0,
-        maxOdd: 100.0
+        models: ['gpt-4-turbo-preview', 'gpt-3.5-turbo'],
+        limits: { maxMatches: 8, minOdd: 2.0, maxOdd: 100.0 }
     });
 });
 
-app.get('*', (req, res) => {
+app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
     console.log(`
-🚀 PronosAI OpenAI Edition démarré
-📍 URL: http://localhost:${PORT}
-🔑 OpenAI: ${process.env.OPENAI_API_KEY ? '✅ Configuré' : '❌ Clé manquante'}
-⚽ Mode: Production avec IA réelle
+╔═══════════════════════════════════════╗
+║   🚀 PRONOSAI PRO - IA ÉDITION       ║
+║   📍 http://localhost:${PORT}          ║
+║   🔑 OpenAI: ${process.env.OPENAI_API_KEY ? '✅' : '❌'} Configurée     ║
+║   ⚽ Version: 2.0 - 1xbet Ready       ║
+╚═══════════════════════════════════════╝
     `);
 });
-
-module.exports = app;

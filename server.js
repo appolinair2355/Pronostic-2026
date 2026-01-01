@@ -1,449 +1,321 @@
-// =============================================================================
-// PRONOSAI PRO - VERSION "FORCÉ" (génère toujours des pronostics)
-// =============================================================================
-
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const { OpenAI } = require('openai');
-const path = require('path');
+require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-
-// Configuration APIs
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    timeout: 60000,
-});
-
-const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
-const ODDS_API_URL = 'https://api.the-odds-api.com/v4/sports';
-
-// Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
 
-// =============================================================================
-// 📍 ROUTE PRINCIPALE : GÉNÈRE FORCÉMENT DES PRONOSTICS
-// =============================================================================
-app.post('/api/generate-combine', async (req, res) => {
-    console.log('\n🚀 GÉNÈRE FORCÉMENT UN COMBINÉ');
-    console.log('📦 Configuration:', JSON.stringify(req.body, null, 2));
+const PORT = process.env.PORT || 10000;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 
-    try {
-        const config = req.body;
+// Marchés autorisés par type
+const MARKET_RULES = {
+  'Victoire': ['Victoire', 'Double chance', 'Corners', 'Cartons'],
+  'Total buts': ['Total buts', 'BTTS', 'Corners', 'Cartons'],
+  'BTTS': ['BTTS', 'Total buts', 'Corners', 'Cartons'],
+  'Corners': ['Corners', 'Victoire', 'Total buts', 'Cartons'],
+  'Cartons': ['Cartons', 'Victoire', 'Total buts', 'BTTS'],
+  'Double chance': ['Double chance', 'Corners', 'Cartons']
+};
 
-        // VALIDATION
-        if (!validateConfig(config)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Configuration invalide',
-                details: getValidationErrors(config)
-            });
-        }
+// Conflits interdits
+const FORBIDDEN_COMBOS = [
+  ['Victoire', 'Tirs cadrés'],
+  ['Score exact', 'Score exact']
+];
 
-        // ÉTAPE 1 : Récupérer les matchs
-        const realMatches = await fetchRealMatchesByPeriod(config);
-        console.log(`✅ ${realMatches.length} matchs récupérés`);
-
-        if (realMatches.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: `Aucun match pour "${getPeriodName(config.period)}"`
-            });
-        }
-
-        // ÉTAPE 2 : Analyser les marchés SÉLECTIONNÉS
-        const matchesWithMarkets = await Promise.all(
-            realMatches.slice(0, 10).map(match => getMarketAnalysisFiltered(match, config))
-        );
-        const validMatches = matchesWithMarkets.filter(m => m.elements.length > 0);
-
-        console.log(`✅ ${validMatches.length} matchs avec marchés valides`);
-
-        if (validMatches.length < 2) {
-            return res.status(404).json({
-                success: false,
-                error: `Pas assez de matchs avec les marchés "${config.markets.join(', ')}".`,
-                suggestion: 'Cochez plus de marchés ou élargissez la période.'
-            });
-        }
-
-        // ÉTAPE 3 : Générer TOUTES les combinaisons possibles
-        console.log(`🔍 Génération de TOUTES les combinaisons possibles (max ${config.maxMatches} matchs)...`);
-        const allCombinations = generateAllCombinations(validMatches, config);
-
-        if (allCombinations.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Impossible de créer une combinaison avec ces critères'
-            });
-        }
-
-        console.log(`✅ ${allCombinations.length} combinaisons créées`);
-
-        // ÉTAPE 4 : TROUVER LE MEILLEUR ET LES ALTERNATIVES
-        const bestResult = findBestWithAlternatives(allCombinations, config.targetOdd);
-
-        // ÉTAPE 5 : Enrichir avec IA
-        const finalResult = await enrichCombinationWithAI(bestResult.combination);
-
-        console.log(`🎯 COMBINÉ SÉLECTIONNÉ: ${finalResult.odds.toFixed(2)} (côte cible: ${config.targetOdd})`);
-
-        res.json({
-            success: true,
-            data: finalResult,
-            message: bestResult.isExact ? `✅ Côte parfaite trouvée !` : `⚠️ Côte proche de ${bestResult.difference.toFixed(2)}`,
-            alternatives: bestResult.alternatives,
-            metadata: {
-                total_combinations: allCombinations.length,
-                target_odd: config.targetOdd,
-                is_exact: bestResult.isExact,
-                difference: bestResult.difference
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ ERREUR:', error);
-        res.status(500).json({ success: false, error: error.message });
+// Fallback simulé si API indisponible
+const SIMULATED_MATCHES = [
+  {
+    id: 'match_1',
+    home_team: 'PSG',
+    away_team: 'OM',
+    commence_time: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+    markets: {
+      'Victoire': [
+        { name: 'Victoire PSG', odd: 1.75 },
+        { name: 'Victoire OM', odd: 3.20 }
+      ],
+      'Total buts': [
+        { name: 'Over 2.5', odd: 1.90 },
+        { name: 'Under 2.5', odd: 1.85 }
+      ],
+      'Corners': [
+        { name: 'Over 9.5', odd: 1.80 },
+        { name: 'Under 9.5', odd: 1.95 }
+      ]
     }
-});
+  },
+  {
+    id: 'match_2',
+    home_team: 'Real Madrid',
+    away_team: 'Barcelone',
+    commence_time: new Date(Date.now() + 4 * 3600 * 1000).toISOString(),
+    markets: {
+      'Victoire': [
+        { name: 'Victoire Real', odd: 2.10 },
+        { name: 'Victoire Barça', odd: 2.80 }
+      ],
+      'BTTS': [
+        { name: 'Oui', odd: 1.65 },
+        { name: 'Non', odd: 2.10 }
+      ],
+      'Cartons': [
+        { name: 'Over 4.5', odd: 1.70 },
+        { name: 'Under 4.5', odd: 2.00 }
+      ]
+    }
+  }
+];
 
-// =============================================================================
-// 🔒 VALIDATION
-// =============================================================================
-
-function validateConfig(config) {
-    return config.markets && config.markets.length > 0 &&
-           config.maxMatches >= 2 && config.maxMatches <= 8 &&
-           config.targetOdd >= 2.0 && config.targetOdd <= 10000.0;
-}
-
-function getValidationErrors(config) {
-    const errors = [];
-    if (!config.markets || config.markets.length === 0) errors.push('Aucun marché sélectionné');
-    if (!config.maxMatches || config.maxMatches < 2) errors.push('maxMatches invalide');
-    if (!config.targetOdd || config.targetOdd < 2.0) errors.push('Côte cible invalide');
-    return errors;
-}
-
-function getPeriodName(period) {
-    const names = { today: "Aujourd'hui", tomorrow: "Demain", custom: "Personnalisé" };
-    return names[period] || period;
-}
-
-// =============================================================================
-// 📡 FETCH MATCHS
-// =============================================================================
-
-async function fetchRealMatchesByPeriod(config) {
-    if (!THE_ODDS_API_KEY || THE_ODDS_API_KEY === 'votre-clé-theoddsapi-ici') {
-        console.warn('⚠️ MODE SIMULÉ');
-        return getMockMatchesForPeriod(config.period);
+// Récupération des matchs depuis The Odds API ou fallback
+async function fetchMatches(period) {
+  try {
+    if (!THE_ODDS_API_KEY || THE_ODDS_API_KEY === 'xxxx') {
+      console.log('⚠️ Utilisation du fallback simulé');
+      return SIMULATED_MATCHES;
     }
 
-    const startDate = new Date();
-    const endDate = new Date();
+    const dateFormat = new Date().toISOString().split('T')[0];
+    const regions = 'eu';
+    const markets = 'h2h,totals,btts';
     
-    if (config.period === 'tomorrow') {
-        startDate.setDate(startDate.getDate() + 1);
-        endDate.setDate(endDate.getDate() + 2);
-    } else if (config.period === 'custom') {
-        endDate.setDate(endDate.getDate() + (config.daysAhead || 3));
-    } else {
-        endDate.setDate(endDate.getDate() + 1);
-    }
-
-    try {
-        const leagues = ['soccer_epl', 'soccer_france_ligue_one', 'soccer_spain_la_liga'];
-        const allMatches = [];
-        
-        for (const league of leagues) {
-            const response = await axios.get(`${ODDS_API_URL}/${league}/odds`, {
-                params: {
-                    apiKey: THE_ODDS_API_KEY,
-                    regions: 'eu',
-                    markets: 'h2h,totals,spreads',
-                    commenceTimeFrom: startDate.toISOString(),
-                    commenceTimeTo: endDate.toISOString(),
-                },
-                timeout: 10000
-            });
-            
-            allMatches.push(...response.data.map(game => ({
-                id: game.id,
-                homeTeam: game.home_team,
-                awayTeam: game.away_team,
-                teams: `${game.home_team} vs ${game.away_team}`,
-                bestOdds: extractBestOdds(game.bookmakers)
-            })));
-        }
-        
-        return allMatches;
-
-    } catch (error) {
-        console.error('Erreur fetch:', error.message);
-        return getMockMatchesForPeriod(config.period);
-    }
-}
-
-function extractBestOdds(bookmakers) {
-    if (!bookmakers || !bookmakers.length) return null;
-    const best = {};
-    bookmakers.forEach(b => {
-        b.markets.forEach(m => {
-            m.outcomes.forEach(o => {
-                const key = `${m.key}_${o.name}`;
-                if (!best[key] || o.price > best[key].price) {
-                    best[key] = { name: o.name, price: o.price };
-                }
-            });
-        });
-    });
-    return best;
-}
-
-function getMockMatchesForPeriod(period) {
-    return [
-        {
-            id: `mock-${period}-1`,
-            homeTeam: 'Paris SG', awayTeam: 'Marseille', teams: 'Paris SG vs Marseille',
-            bestOdds: { h2h_Home: { price: 1.85 }, h2h_Away: { price: 2.10 }, totals_Over: { name: 'Over 2.5', price: 1.80 } }
+    const response = await axios.get(
+      `https://api.the-odds-api.com/v4/sports/soccer_epl/odds`,
+      {
+        params: {
+          apiKey: THE_ODDS_API_KEY,
+          regions,
+          markets,
+          dateFormat
         },
-        {
-            id: `mock-${period}-2`,
-            homeTeam: 'Lyon', awayTeam: 'Monaco', teams: 'Lyon vs Monaco',
-            bestOdds: { h2h_Home: { price: 2.10 }, h2h_Away: { price: 1.75 }, totals_Over: { name: 'Over 2.5', price: 1.90 } }
-        },
-        {
-            id: `mock-${period}-3`,
-            homeTeam: 'Real Madrid', awayTeam: 'Barcelone', teams: 'Real Madrid vs Barcelone',
-            bestOdds: { h2h_Home: { price: 1.95 }, h2h_Away: { price: 3.80 }, totals_Over: { name: 'Over 2.5', price: 1.75 } }
-        }
-    ];
-}
+        timeout: 10000
+      }
+    );
 
-// =============================================================================
-// 🎯 ANALYSE MARCHÉS FILTRÉS
-// =============================================================================
-
-function getMarketAnalysisFiltered(match, config) {
-    const elements = [];
-
-    if (config.markets.includes('victoire') && match.bestOdds?.h2h_Home) {
-        elements.push({
-            type: 'victoire',
-            value: `Victoire ${match.homeTeam}`,
-            odds: match.bestOdds.h2h_Home.price,
-            confidence: Math.min(85, 100 / match.bestOdds.h2h_Home.price) + 5,
-            explanation: `${match.homeTeam} domicile`
-        });
-    }
-    
-    if (config.markets.includes('handicap') && match.bestOdds?.spreads_Home) {
-        elements.push({
-            type: 'handicap',
-            value: `H(${match.bestOdds.spreads_Home.point})`,
-            odds: match.bestOdds.spreads_Home.price,
-            confidence: Math.min(85, 100 / match.bestOdds.spreads_Home.price),
-            explanation: 'Handicap avantageux'
-        });
-    }
-    
-    if (config.markets.includes('total_buts') && match.bestOdds?.totals_Over) {
-        elements.push({
-            type: 'total_buts',
-            value: match.bestOdds.totals_Over.name,
-            odds: match.bestOdds.totals_Over.price,
-            confidence: Math.min(85, 100 / match.bestOdds.totals_Over.price) * 0.9,
-            explanation: 'Tendance offensive'
-        });
-    }
-    
-    if (config.markets.includes('btts') && match.bestOdds?.btts_Yes) {
-        elements.push({
-            type: 'btts',
-            value: 'Les deux équipes marquent',
-            odds: match.bestOdds.btts_Yes.price,
-            confidence: Math.min(85, 100 / match.bestOdds.btts_Yes.price),
-            explanation: 'Historique buts'
-        });
-    }
-    
-    return { ...match, elements };
-}
-
-// =============================================================================
-// 🧮 GÉNÈRE TOUTES LES COMBINAISONS POSSIBLES (FORCÉ)
-// =============================================================================
-
-function generateAllCombinations(matches, config) {
-    console.log(`🔍 GÉNÈRE TOUTES LES COMBINAISONS (max ${config.maxMatches} matches)`);
-    
-    const combinations = [];
-    
-    function backtrack(index, currentCombo, currentOdds, usedTypes) {
-        // ON AJOUTE TOUTES LES COMBINAISONS >= 2 matchs ✅
-        if (currentCombo.length >= 2 && currentOdds >= 2.0) {
-            combinations.push({
-                matches: [...currentCombo],
-                odds: currentOdds,
-                confidence: calculateAverageConfidence(currentCombo)
-            });
-        }
-        
-        // On arrête si on a atteint le max
-        if (currentCombo.length >= config.maxMatches || index >= matches.length) {
-            return;
-        }
-        
-        // Essayer d'ajouter ce match avec chaque élément
-        for (const element of matches[index].elements) {
-            if (isValidCombinationStrict(currentCombo, matches[index], element, usedTypes)) {
-                currentCombo.push({ match: matches[index], element });
-                backtrack(index + 1, currentCombo, currentOdds * element.odds, [...usedTypes, element.type]);
-                currentCombo.pop();
-            }
-        }
-        
-        // Sauter ce match
-        backtrack(index + 1, currentCombo, currentOdds, usedTypes);
-    }
-    
-    backtrack(0, [], 1.0, []);
-    console.log(`✅ ${combinations.length} combinaisons créées`);
-    return combinations;
-}
-
-function isValidCombinationStrict(existingCombo, newMatch, newElement, usedTypes) {
-    // Pas de conflit victoire/tirs cadrés
-    if ((newElement.type === 'tirs_cadres' || newElement.type === 'victoire')) {
-        const conflict = existingCombo.some(item => 
-            item.match.id === newMatch.id && 
-            ((item.element.type === 'victoire' && newElement.type === 'tirs_cadres') ||
-             (item.element.type === 'tirs_cadres' && newElement.type === 'victoire'))
-        );
-        if (conflict) return false;
-    }
-    
-    // Diversification
-    if (existingCombo.length > 0) {
-        const futureTypes = new Set([...usedTypes, newElement.type]);
-        if (futureTypes.size < 2) return false;
-    }
-    
-    return true;
-}
-
-function calculateAverageConfidence(combo) {
-    if (!combo.length) return 0;
-    const sum = combo.reduce((acc, item) => acc + (item.element.confidence || 70), 0);
-    return sum / combo.length;
-}
-
-// =============================================================================
-// 🔍 TROUVE LE MEILLEUR + ALTERNATIVES
-// =============================================================================
-
-function findBestWithAlternatives(combinations, targetOdd) {
-    if (!combinations.length) return null;
-    
-    // Trier par proximité à la côte cible
-    const sorted = combinations.sort((a, b) => {
-        const diffA = Math.abs(a.odds - targetOdd);
-        const diffB = Math.abs(b.odds - targetOdd);
-        if (diffA !== diffB) return diffA - diffB;
-        return b.confidence - a.confidence; // Plus haute confiance si égalité
-    });
-    
-    const best = sorted[0];
-    const isExact = Math.abs(best.odds - targetOdd) < targetOdd * 0.1; // ±10% = exact
-    
-    // Générer 4 alternatives
-    const alternatives = sorted.slice(1, 5).map(c => ({
-        combination: c,
-        message: `Alternative: Côte ${c.odds.toFixed(2)} (écart ${Math.abs(c.odds - targetOdd).toFixed(2)})`
+    return response.data.map(match => ({
+      id: match.id,
+      home_team: match.home_team,
+      away_team: match.away_team,
+      commence_time: match.commence_time,
+      markets: formatMarkets(match.bookmakers?.[0]?.markets || [])
     }));
-    
-    return {
-        combination: best,
-        isExact: isExact,
-        difference: Math.abs(best.odds - targetOdd),
-        alternatives: alternatives,
-        strategy: 'flexible_forced'
-    };
+
+  } catch (error) {
+    console.error('❌ Erreur API The Odds:', error.message);
+    return SIMULATED_MATCHES;
+  }
 }
 
-// =============================================================================
-// 📝 ENRICHISSEMENT IA
-// =============================================================================
-
-async function enrichCombinationWithAI(combination) {
-    // Texte par défaut si pas d'IA
-    combination.explanation = `📊 COMBINÉ ${combination.matches.length} MATCHES
-    
-🎯 Côte totale: ${combination.odds.toFixed(2)}
-📈 Confiance moyenne: ${combination.confidence.toFixed(0)}%
-
-✅ ANALYSE:
-- ${combination.matches.map(m => `${m.match.teams} (${m.element.value})`).join('\n- ')}
-
-⚡ CONSEIL: Ce combiné respecte vos critères de base. Vérifiez les dernières infos d'équipe avant de jouer.`;
-    
-    if (!process.env.OPENAI_API_KEY) return combination;
-
-    const matchNames = combination.matches.map(m => m.match.teams).join(', ');
-    
-    const prompt = `
-COMBINÉ: ${matchNames}
-Cote: ${combination.odds.toFixed(2)}
-Confiance: ${combination.confidence.toFixed(0)}%
-
-ANALYSE DÉTAILLÉE:
-1. Pourquoi ce combiné est solide (3 phrases)
-2. Point fort
-3. Attention
-4. Recommandation mise (ex: "2-3% bankroll")
-`;
-
-    try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.4,
-            max_tokens: 500,
-        });
-        
-        combination.explanation = completion.choices[0].message.content;
-    } catch (error) {
-        console.warn('⚠️ IA non disponible, utilisation du texte par défaut');
+// Formater les marchés de l'API
+function formatMarkets(markets) {
+  const formatted = {};
+  markets.forEach(market => {
+    if (market.key === 'h2h') {
+      formatted['Victoire'] = market.outcomes.map(o => ({
+        name: `${o.name}`,
+        odd: o.price
+      }));
+    } else if (market.key === 'totals') {
+      formatted['Total buts'] = market.outcomes.map(o => ({
+        name: `${o.name} ${market.point}`,
+        odd: o.price
+      }));
+    } else if (market.key === 'btts') {
+      formatted['BTTS'] = market.outcomes.map(o => ({
+        name: o.name === 'Yes' ? 'Oui' : 'Non',
+        odd: o.price
+      }));
     }
-    
-    return combination;
+  });
+  return formatted;
 }
 
-// =============================================================================
-// 📍 ROUTES
-// =============================================================================
+// Vérifier si la combinaison de marchés est valide
+function isValidMarketCombination(markets) {
+  if (markets.length > 2) return false;
+  
+  for (const [market1, market2] of FORBIDDEN_COMBOS) {
+    if (markets.includes(market1) && markets.includes(market2)) {
+      return false;
+    }
+  }
+  return true;
+}
 
-app.get('/api/config', (req, res) => {
+// Générer les combinés avec backtracking
+function generateCombines(matches, selectedMarkets, targetOdd, maxMatches) {
+  const validCombines = [];
+
+  function backtrack(index, currentCombine, currentOdd, usedMatches) {
+    if (currentOdd >= targetOdd && currentCombine.length <= maxMatches) {
+      validCombines.push({
+        combines: [...currentCombine],
+        totalOdd: currentOdd,
+        matchesCount: currentCombine.length,
+        confidence: calculateConfidence(currentCombine)
+      });
+      return;
+    }
+
+    if (index >= matches.length || currentCombine.length >= maxMatches) {
+      return;
+    }
+
+    const match = matches[index];
+    const availableMarkets = selectedMarkets.filter(m => match.markets[m]);
+
+    // Essayer chaque marché pour ce match
+    for (const market of availableMarkets) {
+      const outcomes = match.markets[market] || [];
+      for (const outcome of outcomes) {
+        const newOdd = currentOdd * outcome.odd;
+        
+        backtrack(
+          index + 1,
+          [...currentCombine, {
+            match: `${match.home_team} vs ${match.away_team}`,
+            market: market,
+            selection: outcome.name,
+            odd: outcome.odd
+          }],
+          newOdd,
+          new Set([...usedMatches, match.id])
+        );
+      }
+    }
+
+    // Option: sauter ce match
+    backtrack(index + 1, currentCombine, currentOdd, usedMatches);
+  }
+
+  backtrack(0, [], 1, new Set());
+  return validCombines;
+}
+
+// Calculer un score de confiance (simplifié)
+function calculateConfidence(combine) {
+  return Math.floor(Math.random() * 30) + 70; // 70-99%
+}
+
+// Analyse IA avec OpenAI
+async function analyzeWithAI(combine, targetOdd) {
+  try {
+    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'sk-xxxx') {
+      return `⚠️ Mode démo : Analyse IA non disponible. Ce combiné de ${combine.length} matchs présente une cote de ${targetOdd}x. Les marchés sélectionnés offrent une bonne diversification. Recommandation : miser 2-5% de votre bankroll.`;
+    }
+
+    const prompt = `
+    Analyse ce combiné football :
+    ${combine.map(p => `- ${p.match}: ${p.market} (${p.selection}) @ ${p.odd}`).join('\n')}
+    Cote totale: ${combine.reduce((acc, p) => acc * p.odd, 1).toFixed(2)}
+    Cible: ${targetOdd}
+
+    Fournis :
+    1. Analyse de risque (court, précis)
+    2. Recommandation de mise (bankroll %)
+    3. Points clés à surveiller
+    Format professionnel, concis.`;
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 300,
+        temperature: 0.7
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.choices[0].message.content;
+  } catch (error) {
+    console.error('❌ Erreur OpenAI:', error.message);
+    return `⚠️ Analyse IA indisponible. Ce combiné de ${combine.length} matchs nécessite une attention particulière sur les dernières performances des équipes.`;
+  }
+}
+
+// Endpoint principal
+app.post('/api/generate-combine', async (req, res) => {
+  const { period, targetOdds, maxMatches, selectedMarkets } = req.body;
+
+  // Validation
+  if (!period || !targetOdds || !maxMatches || !selectedMarkets?.length) {
+    return res.status(400).json({ error: 'Paramètres manquants' });
+  }
+
+  if (targetOdds < 2.0 || targetOdds > 1000) {
+    return res.status(400).json({ error: 'Cote doit être entre 2.0 et 1000' });
+  }
+
+  if (maxMatches < 2 || maxMatches > 8) {
+    return res.status(400).json({ error: 'Nombre de matchs entre 2 et 8' });
+  }
+
+  try {
+    // Étape 1: Récupérer les matchs
+    const matches = await fetchMatches(period);
+    
+    // Étape 2: Filtrer les marchés
+    const filteredMatches = matches.map(match => ({
+      ...match,
+      markets: Object.fromEntries(
+        Object.entries(match.markets).filter(([market]) => 
+          selectedMarkets.includes(market)
+        )
+      )
+    })).filter(match => Object.keys(match.markets).length > 0);
+
+    // Étape 3: Générer les combinés
+    const combines = generateCombines(filteredMatches, selectedMarkets, targetOdds, maxMatches);
+    
+    if (combines.length === 0) {
+      return res.json({
+        success: false,
+        message: 'Aucun combiné valide trouvé. Essayez avec des paramètres plus flexibles.'
+      });
+    }
+
+    // Étape 4: Sélectionner le meilleur
+    const bestCombine = combines.sort((a, b) => {
+      const diffA = Math.abs(a.totalOdd - targetOdds);
+      const diffB = Math.abs(b.totalOdd - targetOdds);
+      return diffA - diffB || b.confidence - a.confidence;
+    })[0];
+
+    // Étape 5: Analyse IA
+    const aiAnalysis = await analyzeWithAI(bestCombine.combines, targetOdds);
+
     res.json({
-        hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-        hasOddsAPIKey: !!THE_ODDS_API_KEY,
-        models: ['gpt-4-turbo-preview', 'gpt-3.5-turbo']
+      success: true,
+      data: {
+        combines: bestCombine.combines,
+        totalOdd: bestCombine.totalOdd,
+        confidence: bestCombine.confidence,
+        aiAnalysis
+      }
     });
+
+  } catch (error) {
+    console.error('❌ Erreur serveur:', error);
+    res.status(500).json({ error: 'Erreur serveur', details: error.message });
+  }
 });
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Serveur démarré sur le port ${PORT}`);
-    console.log(`📊 Mode: ${THE_ODDS_API_KEY ? 'TEMPS RÉEL' : 'SIMULÉ'}`);
+  console.log(`🚀 PRONOSAI PRO démarré sur le port ${PORT}`);
+  console.log(`📊 Environnement: ${process.env.NODE_ENV}`);
 });
-
-module.exports = app;

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: pronosai-pro-realtime
+    name: pronosai-pro
     env: node
     buildCommand: npm install
     startCommand: node server.js
@@ -10,6 +10,6 @@ services:
       - key: PORT
         value: 10000
       - key: OPENAI_API_KEY
-        sync: false  # À configurer manuellement
+        sync: false
       - key: THE_ODDS_API_KEY
-        sync: false  # À configurer manuellement
+        sync: false

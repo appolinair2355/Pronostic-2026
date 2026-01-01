@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: pronosai-frontend
+    name: pronosai-pro
     env: node
     buildCommand: npm install
     startCommand: node server.js
@@ -10,4 +10,9 @@ services:
       - key: PORT
         value: 10000
       - key: OPENAI_API_KEY
-        sync: false
+        sync: false  # À configurer manuellement dans le dashboard Render
+
+# Plan gratuit par défaut
+# Pour plus de performance, décommentez :
+# plan: starter
+

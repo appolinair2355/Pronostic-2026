@@ -1,28 +1,28 @@
 // =============================================================================
-// PRONOSAI PRO - CLIENT.JS
-// Gestion du formulaire, progression et affichage des résultats
+// CLIENT.JS - LOGIQUE FRONTEND + VÉRIFICATION API
 // =============================================================================
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 PronosAI Pro Frontend chargé sur port 10000');
+    console.log('🚀 Frontend chargé');
     
     const form = document.getElementById('config-form');
     const progressSection = document.getElementById('progress-section');
     const resultsSection = document.getElementById('results-section');
     const generateBtn = document.getElementById('generate-btn');
+
+    // VÉRIFICATION DES CLÉS API AU CHARGEMENT
+    verifyAPIKeys();
     
-    // Gestion du formulaire
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const config = getFormData();
         
         if (!validateForm(config)) {
-            alert('❌ Veuillez sélectionner au moins 2 marchés');
+            alert('❌ Sélectionnez au moins 2 marchés');
             return;
         }
         
-        // Désactiver le bouton pendant l'analyse
         generateBtn.disabled = true;
         generateBtn.textContent = '⏳ Analyse en cours...';
         
@@ -45,21 +45,40 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error('❌ Erreur API:', error);
-            showError('Erreur de connexion au serveur. Vérifiez que le backend tourne sur le port 10000.');
+            showError('Erreur de connexion au serveur');
         } finally {
             generateBtn.disabled = false;
-            generateBtn.textContent = '🚀 GÉNÉRER MON COMBINÉ';
+            generateBtn.textContent = '🚀 GÉNÉRER MON COMBINÉ TEMPS RÉEL';
             hideProgress();
         }
     });
-    
-    // Gestion du bouton "Régénérer"
-    document.getElementById('regenerate-btn').addEventListener('click', () => {
-        resultsSection.classList.add('hidden');
-        form.scrollIntoView({ behavior: 'smooth' });
-    });
-    
-    // Validation du formulaire
+
+    // VÉRIFICATION DES CLÉS API
+    async function verifyAPIKeys() {
+        try {
+            const response = await fetch('/api/config');
+            const config = await response.json();
+            
+            if (!config.hasOpenAIKey || !config.hasOddsAPIKey) {
+                document.getElementById('api-alert').classList.remove('hidden');
+            }
+            
+            // Mettre à jour les indicateurs visuels
+            const openaiStatus = document.getElementById('openai-status');
+            const oddsapiStatus = document.getElementById('oddsapi-status');
+            
+            openaiStatus.className = config.hasOpenAIKey ? 'w-2 h-2 rounded-full mr-3 bg-green-500' : 'w-2 h-2 rounded-full mr-3 bg-red-500';
+            oddsapiStatus.className = config.hasOddsAPIKey ? 'w-2 h-2 rounded-full mr-3 bg-green-500' : 'w-2 h-2 rounded-full mr-3 bg-red-500';
+            
+            document.getElementById('openai-status-text').textContent = config.hasOpenAIKey ? '✅ Connecté' : '❌ Clé manquante';
+            document.getElementById('oddsapi-status-text').textContent = config.hasOddsAPIKey ? '✅ Connecté' : '❌ Clé manquante';
+            
+        } catch (error) {
+            console.error('Erreur vérification API:', error);
+        }
+    }
+
+    // RÉCUPÉRATION DONNÉES FORMULAIRE
     function getFormData() {
         const formData = new FormData(form);
         const period = formData.get('period');
@@ -71,29 +90,29 @@ document.addEventListener('DOMContentLoaded', function() {
             markets: formData.getAll('markets')
         };
         
-        // Gestion du nombre de jours personnalisé
         if (period === 'custom') {
             const customInput = document.querySelector('input[name="period"][value="custom"]')
                 .parentElement.querySelector('input[type="number"]');
             config.daysAhead = parseInt(customInput.value) || 3;
         }
         
+        console.log('📦 Configuration envoyée:', config);
         return config;
     }
-    
+
+    // VALIDATION FORMULAIRE
     function validateForm(config) {
         return config.markets.length >= 2 &&
                config.targetOdd >= 2.0 &&
-               config.targetOdd <= 100.0;
+               config.targetOdd <= 1000.0;
     }
-    
-    // Gestion de la progression
+
+    // GESTION PROGRESSION
     function showProgress() {
         progressSection.classList.remove('hidden');
         resultsSection.classList.add('hidden');
         updateProgress(0, 'Initialisation de l\'analyse IA...');
         
-        // Animation d'entrée
         anime({
             targets: progressSection,
             opacity: [0, 1],
@@ -102,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
             easing: 'easeOutQuad'
         });
     }
-    
+
     function hideProgress() {
         anime({
             targets: progressSection,
@@ -113,15 +132,14 @@ document.addEventListener('DOMContentLoaded', function() {
             complete: () => progressSection.classList.add('hidden')
         });
     }
-    
+
     function updateProgress(percentage, message) {
         document.getElementById('progress-bar').style.width = percentage + '%';
         document.getElementById('progress-text').textContent = message;
     }
-    
-    // Affichage des résultats
+
+    // AFFICHAGE RÉSULTATS
     function displayResults(data, metadata) {
-        // Remplir les statistiques
         document.getElementById('total-odds').textContent = data.odds.toFixed(2);
         document.getElementById('match-count').textContent = data.matches.length;
         document.getElementById('confidence').textContent = data.confidence.toFixed(0) + '%';
@@ -130,7 +148,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const diff = Math.abs(data.odds - targetOdd).toFixed(2);
         document.getElementById('target-diff').textContent = diff;
         
-        // Afficher les détails des matchs
         const detailsContainer = document.getElementById('combination-details');
         detailsContainer.innerHTML = data.matches.map(item => `
             <div class="border-l-4 border-orange-500 pl-4 py-3 bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">
@@ -142,13 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `).join('');
         
-        // Afficher l'explication IA
         document.getElementById('explanation').textContent = data.explanation || 'Analyse non disponible.';
         
-        // Afficher les métadonnées dans la console
-        console.log('📊 Métadonnées:', metadata);
-        
-        // Animation d'entrée
+        // Afficher section résultats
         resultsSection.classList.remove('hidden');
         anime({
             targets: resultsSection,
@@ -158,14 +171,12 @@ document.addEventListener('DOMContentLoaded', function() {
             easing: 'easeOutQuad'
         });
         
-        // Scroll vers les résultats
         setTimeout(() => {
             resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 200);
     }
-    
+
     function showError(message) {
         alert(`❌ Erreur: ${message}\n\nVérifiez la console pour plus de détails.`);
     }
 });
-      

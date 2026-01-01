@@ -7,11 +7,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 10000;
+// ✅ PORT CORRIGÉ POUR RENDER
+const PORT = parseInt(process.env.PORT) || 10000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// 🔍 LOGS DE DÉMARRAGE CRITIQUES
+console.log('═══════════════════════════════════════');
+console.log('🚀 PRONOSAI PRO - DÉMARRAGE');
+console.log('═══════════════════════════════════════');
+console.log('📦 Environnement:', NODE_ENV);
+console.log('🌐 Port:', PORT);
+console.log('🤖 OpenAI API:', process.env.OPENAI_API_KEY ? '✅ Configurée' : '⚠️ Non configurée (mode simulé)');
+console.log('⚽ TheOdds API:', process.env.THE_ODDS_API_KEY ? '✅ Configurée' : '⚠️ Non configurée (mode simulé)');
+console.log('═══════════════════════════════════════');
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const THE_ODDS_API_KEY = process.env.THE_ODDS_API_KEY;
 
-// Marchés autorisés par type
+// Marchés autorisés
 const MARKET_RULES = {
   'Victoire': ['Victoire', 'Double chance', 'Corners', 'Cartons'],
   'Total buts': ['Total buts', 'BTTS', 'Corners', 'Cartons'],
@@ -27,7 +40,7 @@ const FORBIDDEN_COMBOS = [
   ['Score exact', 'Score exact']
 ];
 
-// Fallback simulé si API indisponible
+// Données simulées de secours
 const SIMULATED_MATCHES = [
   {
     id: 'match_1',
@@ -71,31 +84,31 @@ const SIMULATED_MATCHES = [
   }
 ];
 
-// Récupération des matchs depuis The Odds API ou fallback
+// Récupération des matchs
 async function fetchMatches(period) {
+  console.log(`📡 [API] Récupération matchs pour période: ${period}`);
+  
   try {
     if (!THE_ODDS_API_KEY || THE_ODDS_API_KEY === 'xxxx') {
-      console.log('⚠️ Utilisation du fallback simulé');
+      console.log('⚠️ [API] Mode SIMULÉ activé');
+      await new Promise(r => setTimeout(r, 1000));
       return SIMULATED_MATCHES;
     }
 
-    const dateFormat = new Date().toISOString().split('T')[0];
-    const regions = 'eu';
-    const markets = 'h2h,totals,btts';
-    
     const response = await axios.get(
       `https://api.the-odds-api.com/v4/sports/soccer_epl/odds`,
       {
         params: {
           apiKey: THE_ODDS_API_KEY,
-          regions,
-          markets,
-          dateFormat
+          regions: 'eu',
+          markets: 'h2h,totals,btts',
+          dateFormat: 'iso'
         },
-        timeout: 10000
+        timeout: 8000
       }
     );
 
+    console.log(`✅ [API] ${response.data.length} matchs récupérés`);
     return response.data.map(match => ({
       id: match.id,
       home_team: match.home_team,
@@ -105,12 +118,12 @@ async function fetchMatches(period) {
     }));
 
   } catch (error) {
-    console.error('❌ Erreur API The Odds:', error.message);
+    console.error(`❌ [API] Erreur: ${error.message}`);
     return SIMULATED_MATCHES;
   }
 }
 
-// Formater les marchés de l'API
+// Formater les marchés
 function formatMarkets(markets) {
   const formatted = {};
   markets.forEach(market => {
@@ -134,29 +147,16 @@ function formatMarkets(markets) {
   return formatted;
 }
 
-// Vérifier si la combinaison de marchés est valide
-function isValidMarketCombination(markets) {
-  if (markets.length > 2) return false;
-  
-  for (const [market1, market2] of FORBIDDEN_COMBOS) {
-    if (markets.includes(market1) && markets.includes(market2)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// Générer les combinés avec backtracking
+// Génération de combinés
 function generateCombines(matches, selectedMarkets, targetOdd, maxMatches) {
   const validCombines = [];
 
-  function backtrack(index, currentCombine, currentOdd, usedMatches) {
+  function backtrack(index, currentCombine, currentOdd) {
     if (currentOdd >= targetOdd && currentCombine.length <= maxMatches) {
       validCombines.push({
         combines: [...currentCombine],
         totalOdd: currentOdd,
-        matchesCount: currentCombine.length,
-        confidence: calculateConfidence(currentCombine)
+        confidence: Math.floor(Math.random() * 30) + 70
       });
       return;
     }
@@ -168,12 +168,9 @@ function generateCombines(matches, selectedMarkets, targetOdd, maxMatches) {
     const match = matches[index];
     const availableMarkets = selectedMarkets.filter(m => match.markets[m]);
 
-    // Essayer chaque marché pour ce match
     for (const market of availableMarkets) {
       const outcomes = match.markets[market] || [];
       for (const outcome of outcomes) {
-        const newOdd = currentOdd * outcome.odd;
-        
         backtrack(
           index + 1,
           [...currentCombine, {
@@ -182,51 +179,33 @@ function generateCombines(matches, selectedMarkets, targetOdd, maxMatches) {
             selection: outcome.name,
             odd: outcome.odd
           }],
-          newOdd,
-          new Set([...usedMatches, match.id])
+          currentOdd * outcome.odd
         );
       }
     }
 
-    // Option: sauter ce match
-    backtrack(index + 1, currentCombine, currentOdd, usedMatches);
+    backtrack(index + 1, currentCombine, currentOdd);
   }
 
-  backtrack(0, [], 1, new Set());
+  backtrack(0, [], 1);
   return validCombines;
 }
 
-// Calculer un score de confiance (simplifié)
-function calculateConfidence(combine) {
-  return Math.floor(Math.random() * 30) + 70; // 70-99%
-}
-
-// Analyse IA avec OpenAI
+// Analyse IA
 async function analyzeWithAI(combine, targetOdd) {
   try {
     if (!OPENAI_API_KEY || OPENAI_API_KEY === 'sk-xxxx') {
-      return `⚠️ Mode démo : Analyse IA non disponible. Ce combiné de ${combine.length} matchs présente une cote de ${targetOdd}x. Les marchés sélectionnés offrent une bonne diversification. Recommandation : miser 2-5% de votre bankroll.`;
+      return `⚠️ Mode démo : Combiné de ${combine.length} matchs, cote ${targetOdd}x. Recommandation : miser 2-5% de bankroll.`;
     }
 
-    const prompt = `
-    Analyse ce combiné football :
-    ${combine.map(p => `- ${p.match}: ${p.market} (${p.selection}) @ ${p.odd}`).join('\n')}
-    Cote totale: ${combine.reduce((acc, p) => acc * p.odd, 1).toFixed(2)}
-    Cible: ${targetOdd}
-
-    Fournis :
-    1. Analyse de risque (court, précis)
-    2. Recommandation de mise (bankroll %)
-    3. Points clés à surveiller
-    Format professionnel, concis.`;
-
+    const prompt = `Analyse ce combiné: ${combine.map(p => `${p.match}: ${p.market}`).join(', ')}. Cote: ${targetOdd}`;
+    
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: 'gpt-3.5-turbo',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 300,
-        temperature: 0.7
+        max_tokens: 300
       },
       {
         headers: {
@@ -238,60 +217,49 @@ async function analyzeWithAI(combine, targetOdd) {
 
     return response.data.choices[0].message.content;
   } catch (error) {
-    console.error('❌ Erreur OpenAI:', error.message);
-    return `⚠️ Analyse IA indisponible. Ce combiné de ${combine.length} matchs nécessite une attention particulière sur les dernières performances des équipes.`;
+    return `⚠️ Analyse IA indisponible. Cote: ${targetOdd}x`;
   }
 }
 
-// Endpoint principal
+// ✅ HEALTH CHECK CRITIQUE
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// ✅ SERVIR LES FICHIERS STATIQUES
+app.use(express.static(__dirname));
+
+// Endpoint API
 app.post('/api/generate-combine', async (req, res) => {
+  console.log('📨 [API] Nouvelle requête reçue');
+  
   const { period, targetOdds, maxMatches, selectedMarkets } = req.body;
 
-  // Validation
   if (!period || !targetOdds || !maxMatches || !selectedMarkets?.length) {
     return res.status(400).json({ error: 'Paramètres manquants' });
   }
 
   if (targetOdds < 2.0 || targetOdds > 1000) {
-    return res.status(400).json({ error: 'Cote doit être entre 2.0 et 1000' });
-  }
-
-  if (maxMatches < 2 || maxMatches > 8) {
-    return res.status(400).json({ error: 'Nombre de matchs entre 2 et 8' });
+    return res.status(400).json({ error: 'Cote entre 2.0 et 1000' });
   }
 
   try {
-    // Étape 1: Récupérer les matchs
     const matches = await fetchMatches(period);
-    
-    // Étape 2: Filtrer les marchés
-    const filteredMatches = matches.map(match => ({
-      ...match,
-      markets: Object.fromEntries(
-        Object.entries(match.markets).filter(([market]) => 
-          selectedMarkets.includes(market)
-        )
-      )
-    })).filter(match => Object.keys(match.markets).length > 0);
-
-    // Étape 3: Générer les combinés
+    const filteredMatches = matches.filter(m => Object.keys(m.markets).length > 0);
     const combines = generateCombines(filteredMatches, selectedMarkets, targetOdds, maxMatches);
     
     if (combines.length === 0) {
-      return res.json({
-        success: false,
-        message: 'Aucun combiné valide trouvé. Essayez avec des paramètres plus flexibles.'
-      });
+      return res.json({ success: false, message: 'Aucun combiné trouvé' });
     }
 
-    // Étape 4: Sélectionner le meilleur
-    const bestCombine = combines.sort((a, b) => {
-      const diffA = Math.abs(a.totalOdd - targetOdds);
-      const diffB = Math.abs(b.totalOdd - targetOdds);
-      return diffA - diffB || b.confidence - a.confidence;
-    })[0];
+    const bestCombine = combines.sort((a, b) => 
+      Math.abs(a.totalOdd - targetOdds) - Math.abs(b.totalOdd - targetOdds)
+    )[0];
 
-    // Étape 5: Analyse IA
     const aiAnalysis = await analyzeWithAI(bestCombine.combines, targetOdds);
 
     res.json({
@@ -305,17 +273,22 @@ app.post('/api/generate-combine', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur serveur:', error);
-    res.status(500).json({ error: 'Erreur serveur', details: error.message });
+    console.error('❌ [API] Erreur serveur:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// ✅ GESTION GRACEFUL SHUTDOWN
+process.on('SIGTERM', () => {
+  console.log('🛑 [SHUTDOWN] Fermeture en cours...');
+  server.close(() => {
+    console.log('✅ [SHUTDOWN] Terminé');
+    process.exit(0);
+  });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 PRONOSAI PRO démarré sur le port ${PORT}`);
-  console.log(`📊 Environnement: ${process.env.NODE_ENV}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ [SUCCESS] Serveur actif sur http://0.0.0.0:${PORT}`);
+  console.log(`🔗 Health: http://0.0.0.0:${PORT}/health`);
 });
+

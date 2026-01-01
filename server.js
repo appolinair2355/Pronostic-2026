@@ -1,6 +1,6 @@
 // =============================================================================
-// PRONOSAI PRO - VERSION TEMPS RÉEL & STRICTE
-// Port: 10000 | Respecte: Période, Marchés, MaxMatches, Côte
+// PRONOSAI PRO - VERSION FLEXIBLE & ALTERNATIVES
+// Génère forcément des pronostics même avec critères stricts
 // =============================================================================
 
 require('dotenv').config();
@@ -28,17 +28,17 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 // =============================================================================
-// 📍 ROUTE PRINCIPALE : Génération STRICTE de combiné
+// 📍 ROUTE PRINCIPALE : Génération avec RELÂCHEMENT PROGRESSIF
 // =============================================================================
 app.post('/api/generate-combine', async (req, res) => {
     const startTime = Date.now();
-    console.log('\n🚀 DÉBUT REQUÊTE STRICTE');
+    console.log('\n🚀 DÉBUT REQUÊTE FLEXIBLE');
     console.log('📦 Configuration:', JSON.stringify(req.body, null, 2));
 
     try {
         const config = req.body;
 
-        // VALIDATION STRICTE
+        // VALIDATION
         if (!validateConfig(config)) {
             return res.status(400).json({
                 success: false,
@@ -47,34 +47,32 @@ app.post('/api/generate-combine', async (req, res) => {
             });
         }
 
-        // ÉTAPE 1 : Récupérer matchs SELON LA PÉRIODE CHOISIE ✅
-        updateProgress(10, `Récupération matchs pour période: ${config.period}`);
+        // ÉTAPE 1 : Récupérer les matchs
+        updateProgress(10, `Récupération matchs: ${config.period}`);
         const realMatches = await fetchRealMatchesByPeriod(config);
-        console.log(`✅ ${realMatches.length} matchs récupérés pour "${getPeriodName(config.period)}"`);
+        console.log(`✅ ${realMatches.length} matchs récupérés`);
 
         if (realMatches.length === 0) {
             return res.status(404).json({
                 success: false,
                 error: `Aucun match pour "${getPeriodName(config.period)}"`,
-                suggestion: 'Essayez une autre période'
+                suggestion: 'Essayez une autre période ou vérifiez TheOddsAPI'
             });
         }
 
-        // ÉTAPE 2 : Analyser SEULEMENT les marchés SÉLECTIONNÉS ✅
+        // ÉTAPE 2 : Analyser les marchés SÉLECTIONNÉS
         updateProgress(30, `Analyse marchés: ${config.markets.join(', ')}`);
         const matchesWithMarkets = await Promise.all(
             realMatches.slice(0, config.maxMatches * 3).map(match => 
                 getMarketAnalysisFiltered(match, config)
             )
         );
-
-        // Filtrer les matchs avec au moins un marché valide
         const validMatches = matchesWithMarkets.filter(m => m.elements.length > 0);
         console.log(`✅ ${validMatches.length} matchs avec marchés valides`);
 
-        // ÉTAPE 3 : Générer combinaisons en RESPECTANT STRICTEMENT maxMatches ✅
-        updateProgress(50, `Génération STRICTE de ${config.maxMatches} matchs max...`);
-        const validCombinations = generateStrictCombinations(
+        // ÉTAPE 3 : Générer combinaisons avec STRATEGIE FLEXIBLE
+        updateProgress(50, 'Génération combinés...');
+        const validCombinations = generateFlexibleCombinations(
             validMatches,
             config
         );
@@ -82,102 +80,71 @@ app.post('/api/generate-combine', async (req, res) => {
         if (validCombinations.length === 0) {
             return res.status(404).json({
                 success: false,
-                error: 'Aucune combinaison valide avec vos critères',
-                suggestion: 'Ajoutez plus de marchés ou augmentez maxMatches'
+                error: 'Aucune combinaison possible même avec critères relâchés',
+                suggestion: 'Ajoutez plus de marchés ou baissez la côte cible'
             });
         }
 
-        // ÉTAPE 4 : Trouver le combiné le plus proche
+        // ÉTAPE 4 : Trouver le MEILLEUR combiné (avec alternatives si besoin)
         updateProgress(70, 'Recherche combiné optimal...');
-        const bestCombination = findExactMatchCombination(
+        const result = findBestCombinationWithAlternatives(
             validCombinations,
             config.targetOdd
         );
 
-        if (!bestCombination) {
+        if (!result) {
             return res.status(404).json({
                 success: false,
-                error: `Aucun combiné ne correspond à la côte cible ${config.targetOdd}`,
-                suggestion: `Essayez: ${validCombinations.slice(0,3).map(c => c.odds.toFixed(2)).join(', ')}`
+                error: 'Impossible de générer un combiné avec ces critères',
+                suggestion: `Essayez une côte entre ${validCombinations[0].odds.toFixed(2)} et ${validCombinations[validCombinations.length-1].odds.toFixed(2)}`
             });
         }
 
         // ÉTAPE 5 : Enrichir avec IA
-        updateProgress(85, 'Analyse IA finale...');
-        const finalResult = await enrichCombinationWithAI(bestCombination);
+        updateProgress(85, 'Analyse IA détaillée...');
+        const finalResult = await enrichCombinationWithAI(result.combination);
 
         updateProgress(100, 'Terminé !');
-        const endTime = Date.now();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
-
-        console.log(`✅ COMBINÉ FINAL: ${finalResult.matches.length} matchs, Cote: ${finalResult.odds.toFixed(2)}, Confiance: ${finalResult.confidence.toFixed(0)}%`);
 
         res.json({
             success: true,
             data: finalResult,
-            respects: {
-                period: config.period,
-                markets: config.markets,
-                maxMatches: config.maxMatches,
-                targetOdd: config.targetOdd
-            },
+            alternatives: result.alternatives || [],
             metadata: {
-                duration_seconds: duration,
-                matches_analyzed: realMatches.length,
-                combinations_tested: validCombinations.length
+                duration_seconds: ((Date.now() - startTime) / 1000).toFixed(2),
+                total_combinations: validCombinations.length,
+                strategy_used: result.strategy
             }
         });
 
     } catch (error) {
         console.error('❌ ERREUR FATAL:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({
+            success: false,
+            error: 'Erreur serveur',
+            details: error.message
+        });
     }
 });
 
 // =============================================================================
-// 🔒 VALIDATION STRICTE
+// 🔒 VALIDATION
 // =============================================================================
 
 function validateConfig(config) {
-    console.log('🔍 VALIDATION:', {
-        period: config.period,
-        targetOdd: config.targetOdd,
-        maxMatches: config.maxMatches,
-        marketsCount: config.markets?.length
-    });
-
     const errors = [];
-    
-    if (!['today', 'tomorrow', 'custom'].includes(config.period)) {
-        errors.push('Période invalide');
-    }
-    
-    if (!(config.targetOdd >= 2.0 && config.targetOdd <= 1000.0)) {
-        errors.push('Côte hors limites (2.0-1000.0)');
-    }
-    
-    if (!(config.maxMatches >= 2 && config.maxMatches <= 8)) {
-        errors.push('Nombre de matchs hors limites (2-8)');
-    }
-    
-    if (!Array.isArray(config.markets) || config.markets.length === 0) {
-        errors.push('Aucun marché sélectionné');
-    }
-    
-    if (errors.length > 0) {
-        console.error('❌ ÉCHEC VALIDATION:', errors);
-        return false;
-    }
-    
-    console.log('✅ VALIDATION OK');
-    return true;
+    if (!['today', 'tomorrow', 'custom'].includes(config.period)) errors.push('Période invalide');
+    if (!(config.targetOdd >= 2.0 && config.targetOdd <= 1000.0)) errors.push('Côte hors limites');
+    if (!(config.maxMatches >= 2 && config.maxMatches <= 8)) errors.push('Max matches hors limites');
+    if (!Array.isArray(config.markets) || config.markets.length === 0) errors.push('Aucun marché sélectionné');
+    return errors.length === 0;
 }
 
 function getValidationErrors(config) {
     const errors = [];
     if (!['today', 'tomorrow', 'custom'].includes(config.period)) errors.push('Période invalide');
-    if (!(config.targetOdd >= 2.0 && config.targetOdd <= 1000.0)) errors.push('Côte hors limites');
-    if (!(config.maxMatches >= 2 && config.maxMatches <= 8)) errors.push('Nombre de matchs hors limites');
+    if (!(config.targetOdd >= 2.0 && config.targetOdd <= 10000.0)) errors.push('Côte hors limites (2.0-10000)');
+    if (!(config.maxMatches >= 2 && config.maxMatches <= 8)) errors.push('Max matches hors limites (2-8)');
     if (!Array.isArray(config.markets) || config.markets.length === 0) errors.push('Aucun marché sélectionné');
     return errors;
 }
@@ -192,11 +159,11 @@ function updateProgress(percent, message) {
 }
 
 // =============================================================================
-// 📡 FETCH MATCHS SELON PÉRIODE ✅
+// 📡 FETCH MATCHS (avec mode simulé si pas de clé)
 // =============================================================================
 
 async function fetchRealMatchesByPeriod(config) {
-    console.log(`📅 FETCHING POUR PÉRIODE: ${config.period}`);
+    console.log(`📅 FETCHING: ${config.period}`);
     
     const now = new Date();
     const startDate = new Date(now);
@@ -220,14 +187,14 @@ async function fetchRealMatchesByPeriod(config) {
     
     console.log(`   Plage: ${startStr} → ${endStr}`);
 
-    // MODE SIMULÉ SI PAS DE CLÉ
+    // MODE SIMULÉ si pas de clé
     if (!THE_ODDS_API_KEY || THE_ODDS_API_KEY === 'votre-clé-theoddsapi-ici') {
         console.warn('⚠️ MODE SIMULÉ');
         return getMockMatchesForPeriod(config.period);
     }
 
     try {
-        const leagues = ['soccer_epl', 'soccer_france_ligue_one', 'soccer_spain_la_liga'];
+        const leagues = ['soccer_epl', 'soccer_france_ligue_one'];
         const allMatches = [];
         
         for (const league of leagues) {
@@ -279,6 +246,35 @@ function extractBestOdds(bookmakers) {
     return best;
 }
 
+function getMockMatchesForPeriod(period) {
+    return [
+        {
+            id: `mock-${period}-1`,
+            commence_time: new Date().toISOString(),
+            homeTeam: 'Paris SG',
+            awayTeam: 'Marseille',
+            teams: 'Paris SG vs Marseille',
+            bestOdds: {
+                h2h_Home: { name: 'Home', price: 1.85, bookmaker: 'Mock' },
+                h2h_Away: { name: 'Away', price: 2.10, bookmaker: 'Mock' },
+                totals_Over: { name: 'Over 2.5', price: 1.80, bookmaker: 'Mock' }
+            }
+        },
+        {
+            id: `mock-${period}-2`,
+            commence_time: new Date().toISOString(),
+            homeTeam: 'Lyon',
+            awayTeam: 'Monaco',
+            teams: 'Lyon vs Monaco',
+            bestOdds: {
+                h2h_Home: { name: 'Home', price: 2.10, bookmaker: 'Mock' },
+                h2h_Away: { name: 'Away', price: 1.75, bookmaker: 'Mock' },
+                totals_Over: { name: 'Over 2.5', price: 1.90, bookmaker: 'Mock' }
+            }
+        }
+    ];
+}
+
 // =============================================================================
 // 🎯 ANALYSE MARCHÉS FILTRÉS ✅
 // =============================================================================
@@ -289,7 +285,7 @@ async function getMarketAnalysisFiltered(match, config) {
     
     const elements = [];
 
-    // CHAQUE TYPE VÉRIFIÉ STRICTEMENT ✅
+    // FILTRE STRICT : uniquement les marchés cochés ✅
     if (config.markets.includes('victoire') && match.bestOdds?.h2h_Home) {
         elements.push({
             type: 'victoire',
@@ -335,7 +331,7 @@ async function getMarketAnalysisFiltered(match, config) {
     
     return {
         ...match,
-        elements: elements.slice(0, 2) // MAX 2 par match
+        elements: elements.slice(0, 2) // MAX 2
     };
 }
 
@@ -344,31 +340,31 @@ function calculateBaseConfidence(odds) {
 }
 
 // =============================================================================
-// 🧮 COMBINAISONS STRICTES (RESPECT maxMatches) ✅
+// 🧮 COMBINAISONS FLEXIBLES (GÉNÈRE FORCÉMENT DES RÉSULTATS)
 // =============================================================================
 
-function generateStrictCombinations(matches, config) {
-    console.log(`🔍 GÉNÉRATION STRICTE - MAX ${config.maxMatches} MATCHES`);
+function generateFlexibleCombinations(matches, config) {
+    console.log(`🔍 GÉNÉRATION FLEXIBLE - MAX ${config.maxMatches} MATCHES`);
     
     const combinations = [];
     
     function backtrack(index, currentCombo, currentOdds, usedTypes, depth = 0) {
-        console.log(`   [depth=${depth}] Combo: ${currentCombo.length}/${config.maxMatches} matches, cote: ${currentOdds.toFixed(2)}`);
-        
+        // ON CONTINUE JUSQU'À MAX MATCHES, peu importe la côte ✅
         if (currentCombo.length >= config.maxMatches) {
-            console.log(`   ⛔ MAX ATTEINT (${config.maxMatches})`);
-            if (currentOdds >= config.targetOdd * 0.4) {
+            if (currentOdds >= 2.0) { // Côte minimale réaliste
                 combinations.push({
                     matches: [...currentCombo],
                     odds: currentOdds,
-                    confidence: calculateAverageConfidence(currentCombo)
+                    confidence: calculateAverageConfidence(currentCombo),
+                    typesUsed: new Set([...usedTypes])
                 });
             }
             return;
         }
         
         if (index >= matches.length) {
-            if (currentCombo.length >= 2 && currentOdds >= config.targetOdd * 0.4) {
+            // On accepte même avec moins de matches si côte OK
+            if (currentCombo.length >= 2 && currentOdds >= 2.0) {
                 combinations.push({
                     matches: [...currentCombo],
                     odds: currentOdds,
@@ -378,7 +374,7 @@ function generateStrictCombinations(matches, config) {
             return;
         }
         
-        // ESSAYER D'AJOUTER CE MATCH
+        // Essayer chaque élément du match
         for (const element of matches[index].elements) {
             if (isValidCombinationStrict(currentCombo, matches[index], element, usedTypes)) {
                 currentCombo.push({ match: matches[index], element });
@@ -387,17 +383,17 @@ function generateStrictCombinations(matches, config) {
             }
         }
         
-        // SAUTER CE MATCH
+        // Sauter ce match
         backtrack(index + 1, currentCombo, currentOdds, usedTypes, depth);
     }
     
     backtrack(0, [], 1.0, []);
-    console.log(`✅ ${combinations.length} combinaisons STRICTES`);
+    console.log(`✅ ${combinations.length} combinaisons générées`);
     return combinations;
 }
 
 function isValidCombinationStrict(existingCombo, newMatch, newElement, usedTypes) {
-    // Vérification conflit marchés
+    // Pas de conflit victoire/tirs cadrés
     if ((newElement.type === 'tirs_cadres' || newElement.type === 'victoire')) {
         const conflict = existingCombo.some(item => 
             item.match.id === newMatch.id && 
@@ -422,24 +418,41 @@ function calculateAverageConfidence(combo) {
     return sum / combo.length;
 }
 
-function findExactMatchCombination(combinations, targetOdd) {
+// =============================================================================
+// 🔍 RECHERCHE COMBINÉ AVEC ALTERNATIVES
+// =============================================================================
+
+function findBestCombinationWithAlternatives(combinations, targetOdd) {
     if (!combinations.length) return null;
     
-    console.log(`🔍 RECHERCHE PROCHE DE ${targetOdd}`);
+    console.log(`🔍 RECHERCHE COMBINÉ PROCHE DE ${targetOdd}`);
     console.log(`   ${combinations.length} combinaisons disponibles`);
     
-    return combinations.reduce((best, current) => {
-        if (!best) return current;
-        
-        const currentDiff = Math.abs(current.odds - targetOdd);
-        const bestDiff = Math.abs(best.odds - targetOdd);
-        
-        console.log(`   - Cote: ${current.odds.toFixed(2)}, Diff: ${currentDiff.toFixed(2)}`);
-        
-        if (currentDiff < bestDiff) return current;
-        if (currentDiff === bestDiff && current.confidence > best.confidence) return current;
-        return best;
+    // Trier par proximité à la côte cible
+    const sorted = combinations.sort((a, b) => {
+        const diffA = Math.abs(a.odds - targetOdd);
+        const diffB = Math.abs(b.odds - targetOdd);
+        if (diffA !== diffB) return diffA - diffB;
+        return b.confidence - a.confidence;
     });
+    
+    // PREMIER COMBINÉ = le plus proche
+    const best = sorted[0];
+    
+    // ALTERNATIVES = les 4 suivants
+    const alternatives = sorted.slice(1, 5).map(c => ({
+        combination: c,
+        difference: Math.abs(c.odds - targetOdd),
+        message: `Côte ${c.odds.toFixed(2)} (écart ${Math.abs(c.odds - targetOdd).toFixed(2)})`
+    }));
+    
+    console.log(`✅ COMBINÉ SÉLECTIONNÉ: ${best.odds.toFixed(2)} (écart ${Math.abs(best.odds - targetOdd).toFixed(2)})`);
+    
+    return {
+        combination: best,
+        alternatives: alternatives,
+        strategy: 'flexible_relax'
+    };
 }
 
 // =============================================================================
@@ -448,7 +461,7 @@ function findExactMatchCombination(combinations, targetOdd) {
 
 async function enrichCombinationWithAI(combination) {
     if (!process.env.OPENAI_API_KEY) {
-        combination.explanation = `📊 ${combination.matches.length} MATCHES\n🎯 COTE: ${combination.odds.toFixed(2)}\n⚠️ Mode simulé`;
+        combination.explanation = `📊 COMBINÉ ${combination.matches.length} MATCHES\n🎯 COTE: ${combination.odds.toFixed(2)}\n📈 CONFIANCE: ${combination.confidence.toFixed(0)}%\n\n⚠️ ANALYSE IA NON DISPONIBLE`;
         return combination;
     }
 
@@ -459,11 +472,13 @@ COMBINÉ: ${matchNames}
 Cote: ${combination.odds.toFixed(2)}
 Confiance: ${combination.confidence.toFixed(0)}%
 
-ANALYSE:
-1. Risque global (3 phrases)
-2. Point fort
-3. Attention
-4. Recommandation mise
+ANALYSE PROFONDE:
+1. Pourquoi ce combiné est solide (3 phrases)
+2. Point fort du combiné
+3. Attention particulière
+4. Recommandation mise (ex: "2-3% bankroll")
+
+FORMAT: Utilisez des ✅ et ⚠️ pour les points clés.
 `;
 
     try {
@@ -476,7 +491,8 @@ ANALYSE:
         
         combination.explanation = completion.choices[0].message.content;
     } catch (error) {
-        combination.explanation = `📊 COMBINÉ ${combination.matches.length} MATCHES\n⚠️ Analyse IA non disponible`;
+        combination.explanation = `📊 ${combination.matches.length} MATCHES\n🎯 COTE: ${combination.odds.toFixed(2)}\n📈 CONFIANCE: ${combination.confidence.toFixed(0)}%\n\n⚠️ ANALYSE IA - Mode simplifié activé`;
+        console.warn('⚠️ Explication IA non disponible');
     }
     
     return combination;
@@ -500,6 +516,7 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+    console.log(`📊 Mode: ${THE_ODDS_API_KEY ? 'TEMPS RÉEL' : 'SIMULÉ'}`);
 });
 
 module.exports = app;

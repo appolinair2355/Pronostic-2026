@@ -1,243 +1,437 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PronosAI Pro - IA 1xbet (Port 10000)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * { font-family: 'Inter', sans-serif; }
-        body {
-            background: radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 100%);
-            min-height: 100vh;
-        }
-        .gradient-text {
-            background: linear-gradient(135deg, #ff6b35 0%, #00d4ff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .glass-card {
-            background: rgba(26, 26, 26, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .loading-bar {
-            background: linear-gradient(90deg, #ff6b35 0%, #00d4ff 50%, #ff6b35 100%);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
-        }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRONOSAI PRO - Générateur de Combinés Football IA</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 0;
+      animation: fadeInDown 1s ease;
+    }
+
+    .logo {
+      font-size: 3.5rem;
+      font-weight: 800;
+      background: linear-gradient(45deg, #00ff88, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      opacity: 0.8;
+      margin-top: 10px;
+    }
+
+    .main-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      animation: fadeInUp 1s ease;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      opacity: 0.9;
+      font-weight: 500;
+    }
+
+    input, select {
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 0 0 2px #00ff88;
+    }
+
+    .markets-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+
+    .market-checkbox {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .market-checkbox:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .market-checkbox input {
+      margin-right: 10px;
+      cursor: pointer;
+    }
+
+    .market-checkbox.selected {
+      border-color: #00ff88;
+      background: rgba(0, 255, 136, 0.1);
+    }
+
+    .analyze-btn {
+      width: 100%;
+      padding: 20px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      background: linear-gradient(45deg, #00ff88, #00d4ff);
+      border: none;
+      border-radius: 15px;
+      color: #0f0c29;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .analyze-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 10px 30px rgba(0, 255, 136, 0.5);
+    }
+
+    .analyze-btn:active {
+      transform: scale(0.98);
+    }
+
+    .analyze-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .loading-section {
+      margin-top: 40px;
+      display: none;
+    }
+
+    .loading-section.active {
+      display: block;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .progress-container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      position: relative;
+      height: 50px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #00ff88, #00d4ff);
+      width: 0%;
+      transition: width 0.5s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #0f0c29;
+      position: relative;
+    }
+
+    .progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+
+    .loading-text {
+      text-align: center;
+      font-size: 1.1rem;
+      opacity: 0.8;
+      margin-bottom: 20px;
+    }
+
+    .loading-animation {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .loading-dot {
+      width: 12px;
+      height: 12px;
+      background: #00ff88;
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+    .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    .results-section {
+      margin-top: 40px;
+      display: none;
+    }
+
+    .results-section.show {
+      display: block;
+      animation: fadeInUp 0.8s ease;
+    }
+
+    .result-card {
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 20px;
+    }
+
+    .odds-display {
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(45deg, #00ff88, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .matches-list {
+      margin: 20px 0;
+    }
+
+    .match-item {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border-left: 4px solid #00ff88;
+    }
+
+    .match-header {
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 5px;
+    }
+
+    .match-detail {
+      opacity: 0.8;
+      font-size: 0.9rem;
+    }
+
+    .ai-analysis {
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 15px;
+      padding: 25px;
+      margin-top: 20px;
+    }
+
+    .ai-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: #00d4ff;
+    }
+
+    .error-message {
+      background: rgba(255, 0, 0, 0.1);
+      border: 1px solid rgba(255, 0, 0, 0.3);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      color: #ff6b6b;
+      font-weight: 500;
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: scale(0);
+      }
+      40% {
+        transform: scale(1);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .logo {
+        font-size: 2.5rem;
+      }
+      .main-card {
+        padding: 20px;
+      }
+    }
+  </style>
 </head>
-<body class="text-white">
-    <!-- Navigation -->
-    <nav class="fixed top-0 w-full z-50 glass-card border-b border-gray-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-gradient-to-r from-orange-500 to-blue-400 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-sm">P</span>
-                    </div>
-                    <span class="text-xl font-bold gradient-text">PronosAI Pro</span>
-                </div>
-                <div class="flex space-x-6">
-                    <a href="#" class="text-gray-300 hover:text-white">Accueil</a>
-                    <a href="#" class="text-gray-300 hover:text-white">Historique</a>
-                    <a href="#" class="text-gray-300 hover:text-white">API</a>
-                </div>
-            </div>
+<body>
+  <div class="container">
+    <header>
+      <h1 class="logo">PRONOSAI PRO</h1>
+      <p class="subtitle">Générateur de Combinés Football IA - 1xBet Compatible</p>
+    </header>
+
+    <div class="main-card">
+      <form id="pronosForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="period">Période</label>
+            <select id="period" required>
+              <option value="today">Aujourd'hui</option>
+              <option value="tomorrow">Demain</option>
+              <option value="week">Cette semaine</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="targetOdds">Cote cible</label>
+            <input type="number" id="targetOdds" min="2.0" max="1000" step="0.1" value="5.0" required>
+          </div>
+
+          <div class="form-group">
+            <label for="maxMatches">Max matchs (2-8)</label>
+            <input type="number" id="maxMatches" min="2" max="8" value="4" required>
+          </div>
         </div>
-    </nav>
 
-    <!-- Configuration -->
-    <section class="pt-24 pb-16 px-4">
-        <div class="max-w-5xl mx-auto">
-            <h1 class="text-5xl font-bold text-center mb-12">
-                <span class="gradient-text">Générateur de Combinés IA</span>
-                <div class="text-sm text-gray-400 mt-2">⚡ TEMPS RÉEL | Port 10000</div>
-            </h1>
-            
-            <!-- ALERTE CLÉ API -->
-            <div id="api-alert" class="hidden mb-6 p-4 bg-yellow-500 bg-opacity-20 border border-yellow-500 rounded-lg">
-                <p class="text-yellow-400 text-center">
-                    ⚠️ <strong>Mode Simulé</strong> - Ajoutez vos clés API pour des données en temps réel
-                </p>
+        <div class="form-group">
+          <label>Marchés autorisés (sélectionnez au moins 1)</label>
+          <div class="markets-container">
+            <div class="market-checkbox" data-market="Victoire">
+              <input type="checkbox" id="market_victoire" value="Victoire">
+              <label for="market_victoire">Victoire</label>
             </div>
-            
-            <div class="glass-card rounded-2xl p-8">
-                <form id="config-form" class="space-y-8">
-                    
-                    <!-- État des API -->
-                    <div class="grid md:grid-cols-2 gap-4 text-sm">
-                        <div class="flex items-center p-3 bg-gray-900 rounded-lg">
-                            <span class="w-2 h-2 rounded-full mr-3" id="openai-status"></span>
-                            <span>OpenAI: <span id="openai-status-text">Vérification...</span></span>
-                        </div>
-                        <div class="flex items-center p-3 bg-gray-900 rounded-lg">
-                            <span class="w-2 h-2 rounded-full mr-3" id="oddsapi-status"></span>
-                            <span>TheOddsAPI: <span id="oddsapi-status-text">Vérification...</span></span>
-                        </div>
-                    </div>
-
-                    <!-- Période -->
-                    <div>
-                        <h3 class="text-xl font-semibold mb-4">📅 Période de matches</h3>
-                        <div class="grid md:grid-cols-3 gap-4">
-                            <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
-                                <input type="radio" name="period" value="today" class="mr-3" checked>
-                                <div>
-                                    <div class="font-medium">Aujourd'hui</div>
-                                    <div class="text-sm text-gray-400">Matchs du jour</div>
-                                </div>
-                            </label>
-                            <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
-                                <input type="radio" name="period" value="tomorrow" class="mr-3">
-                                <div>
-                                    <div class="font-medium">Demain</div>
-                                    <div class="text-sm text-gray-400">Matchs de demain</div>
-                                </div>
-                            </label>
-                            <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
-                                <input type="radio" name="period" value="custom" class="mr-3">
-                                <div>
-                                    <div class="font-medium">Personnalisé</div>
-                                    <div class="text-sm text-gray-400">
-                                        <input type="number" min="1" max="7" value="3" class="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1"> jours
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Côte cible -->
-                    <div>
-                        <h3 class="text-xl font-semibold mb-4">🎯 Côte cible (obligatoire)</h3>
-                        <div class="flex items-center space-x-4">
-                            <input type="number" id="target-odd" min="2.0" max="1000.0" step="0.01" value="15.0" 
-                                   class="w-32 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white">
-                            <span class="text-gray-400">(2.0 à 1000.0)</span>
-                        </div>
-                        <p class="text-sm text-gray-500 mt-2">
-                            💡 Pour les gros combinés (>20), augmentez le nombre de matchs
-                        </p>
-                    </div>
-
-                    <!-- Nombre de matchs -->
-                    <div>
-                        <h3 class="text-xl font-semibold mb-4">📊 Nombre de matchs maximum</h3>
-                        <div class="grid grid-cols-4 gap-3">
-                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
-                                <input type="radio" name="maxMatches" value="3" class="mr-2"> 3 matchs
-                            </label>
-                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
-                                <input type="radio" name="maxMatches" value="5" class="mr-2"> 5 matchs
-                            </label>
-                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
-                                <input type="radio" name="maxMatches" value="7" class="mr-2"> 7 matchs
-                            </label>
-                            <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
-                                <input type="radio" name="maxMatches" value="8" class="mr-2" checked> 8 matchs
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Marchés -->
-                    <div>
-                        <h3 class="text-xl font-semibold mb-4">🎲 Marchés à inclure</h3>
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <label class="flex items-center glass-card p-3 rounded-lg">
-                                <input type="checkbox" name="markets" value="victoire" class="mr-3" checked>
-                                Victoire (1x2)
-                            </label>
-                            <label class="flex items-center glass-card p-3 rounded-lg">
-                                <input type="checkbox" name="markets" value="handicap" class="mr-3" checked>
-                                Handicap asiatique
-                            </label>
-                            <label class="flex items-center glass-card p-3 rounded-lg">
-                                <input type="checkbox" name="markets" value="total_buts" class="mr-3" checked>
-                                Total buts (O/U)
-                            </label>
-                            <label class="flex items-center glass-card p-3 rounded-lg">
-                                <input type="checkbox" name="markets" value="btts" class="mr-3" checked>
-                                Les deux équipes marquent
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Bouton -->
-                    <button type="submit" id="generate-btn" 
-                            class="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50">
-                        🚀 GÉNÉRER MON COMBINÉ TEMPS RÉEL
-                    </button>
-                </form>
+            <div class="market-checkbox" data-market="Total buts">
+              <input type="checkbox" id="market_totaux" value="Total buts">
+              <label for="market_totaux">Total buts</label>
             </div>
+            <div class="market-checkbox" data-market="BTTS">
+              <input type="checkbox" id="market_btts" value="BTTS">
+              <label for="market_btts">BTTS</label>
+            </div>
+            <div class="market-checkbox" data-market="Corners">
+              <input type="checkbox" id="market_corners" value="Corners">
+              <label for="market_corners">Corners</label>
+            </div>
+            <div class="market-checkbox" data-market="Cartons">
+              <input type="checkbox" id="market_cartons" value="Cartons">
+              <label for="market_cartons">Cartons</label>
+            </div>
+            <div class="market-checkbox" data-market="Double chance">
+              <input type="checkbox" id="market_double" value="Double chance">
+              <label for="market_double">Double chance</label>
+            </div>
+          </div>
         </div>
-    </section>
 
-    <!-- Progression -->
-    <section id="progress-section" class="py-12 px-4 hidden">
-        <div class="max-w-4xl mx-auto text-center">
-            <div class="glass-card p-8 rounded-2xl">
-                <h3 class="text-2xl font-bold mb-6">Analyse IA en cours...</h3>
-                <div class="w-full bg-gray-800 rounded-full h-4 mb-4">
-                    <div id="progress-bar" class="loading-bar h-full rounded-full" style="width: 0%"></div>
-                </div>
-                <p id="progress-text" class="text-gray-400">Initialisation...</p>
-            </div>
+        <button type="submit" class="analyze-btn" id="analyzeBtn">
+          🔍 ANALYSER LE COMBINÉ
+        </button>
+      </form>
+
+      <div class="loading-section" id="loadingSection">
+        <div class="loading-text">Analyse en cours...</div>
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar">0%</div>
         </div>
-    </section>
-
-    <!-- Résultats -->
-    <section id="results-section" class="py-16 px-4 hidden">
-        <div class="max-w-6xl mx-auto">
-            <h2 class="text-3xl font-bold text-center mb-12 gradient-text">
-                🎯 Votre Combiné Optimisé
-            </h2>
-            
-            <div class="glass-card rounded-2xl p-8 mb-8">
-                <div class="text-center mb-6">
-                    <div class="text-4xl font-bold text-green-400 mb-2" id="total-odds">0.00</div>
-                    <div class="text-gray-400">Côte totale du combiné</div>
-                </div>
-                <div class="grid md:grid-cols-3 gap-6 text-center mb-8">
-                    <div>
-                        <div class="text-2xl font-bold text-orange-400" id="match-count">0</div>
-                        <div class="text-sm text-gray-300">Matchs sélectionnés</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-bold text-blue-400" id="confidence">0%</div>
-                        <div class="text-sm text-gray-300">Confiance moyenne</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-bold text-purple-400" id="target-diff">0.00</div>
-                        <div class="text-sm text-gray-300">Écart côte cible</div>
-                    </div>
-                </div>
-                <div id="combination-details" class="space-y-4">
-                    <!-- Les pronostics seront injectés ici -->
-                </div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-8">
-                <h3 class="text-xl font-bold mb-4">🧠 Analyse IA détaillée</h3>
-                <div id="explanation" class="text-gray-300 leading-relaxed whitespace-pre-line">
-                    <!-- Explication générée par IA -->
-                </div>
-            </div>
-
-            <div class="mt-8 text-center">
-                <button id="regenerate-btn" class="py-3 px-8 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
-                    🎲 Générer un autre combiné
-                </button>
-            </div>
+        <div class="loading-animation">
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
         </div>
-    </section>
+      </div>
 
-    <script src="client.js"></script>
+      <div class="results-section" id="resultsSection">
+        <!-- Résultats injectés ici -->
+      </div>
+    </div>
+  </div>
+
+  <script src="clients.js"></script>
 </body>
 </html>

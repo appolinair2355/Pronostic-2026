@@ -1,0 +1,41 @@
+# =============================================================================
+# GITIGNORE - PRONOSAI PRO
+# =============================================================================
+
+# Dépendances
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environnement (NE JAMAIS COMMIT LA CLÉ API!)
+.env
+.env.local
+.env.production
+.env.development
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Fichiers temporaires
+tmp/
+temp/
+.cache/
+
+# Systèmes de build
+dist/
+build/

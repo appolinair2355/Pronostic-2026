@@ -1,3 +1,8 @@
+// =============================================================================
+// PRONOSAI PRO - SERVEUR EXPRESS + OPENAI
+// Port: 10000 (configuré pour Render.com)
+// =============================================================================
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -10,7 +15,7 @@ const PORT = process.env.PORT || 10000;
 // Configuration OpenAI
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 60000,
+    timeout: 60000, // 60 secondes max par requête
     maxRetries: 2,
 });
 
@@ -19,16 +24,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// ============================================================================
-// 📍 ROUTE PRINCIPALE : Génération d'un combiné optimisé
-// ============================================================================
+// =============================================================================
+// 📍 ROUTE PRINCIPALE : Génération de combiné optimisé
+// =============================================================================
 app.post('/api/generate-combine', async (req, res) => {
     const startTime = Date.now();
     
     try {
         const config = req.body;
         
-        // Validation
+        // VALIDATION
         if (!validateConfig(config)) {
             return res.status(400).json({
                 success: false,
@@ -37,21 +42,20 @@ app.post('/api/generate-combine', async (req, res) => {
             });
         }
 
-        const progressCallback = (percentage) => {
-            console.log(`📊 Progression: ${percentage}%`);
-        };
-
-        progressCallback(10);
-        const matchesWithData = await fetchMatchesFromOpenAI(config, progressCallback);
+        // ÉTAPE 1 : Récupérer les matchs via OpenAI
+        updateProgress(10, 'Récupération des matchs...');
+        const matchesWithData = await fetchMatchesFromOpenAI(config);
         
-        progressCallback(30);
+        // ÉTAPE 2 : Pour chaque match, obtenir 2 éléments sûrs
+        updateProgress(30, 'Analyse des éléments sûrs par match...');
         const matchesWithSafeElements = await Promise.all(
             matchesWithData.slice(0, config.maxMatches * 2).map(match => 
-                getSafeElementsForMatch(match, config, progressCallback)
+                getSafeElementsForMatch(match, config)
             )
         );
 
-        progressCallback(50);
+        // ÉTAPE 3 : Générer toutes les combinaisons valides
+        updateProgress(50, 'Génération des combinaisons possibles...');
         const validCombinations = generateValidCombinations(
             matchesWithSafeElements,
             config
@@ -65,16 +69,18 @@ app.post('/api/generate-combine', async (req, res) => {
             });
         }
 
-        progressCallback(70);
+        // ÉTAPE 4 : Trouver la meilleure combinaison
+        updateProgress(70, 'Recherche du combiné optimal...');
         const bestCombination = findBestCombination(
             validCombinations,
             config.targetOdd
         );
 
-        progressCallback(85);
+        // ÉTAPE 5 : Enrichir avec explications IA
+        updateProgress(85, 'Génération de l\'analyse détaillée...');
         const enrichedResult = await enrichWithExplanations(bestCombination);
 
-        progressCallback(100);
+        updateProgress(100, 'Analyse terminée !');
         
         const endTime = Date.now();
         const duration = ((endTime - startTime) / 1000).toFixed(2);
@@ -100,9 +106,9 @@ app.post('/api/generate-combine', async (req, res) => {
     }
 });
 
-// ============================================================================
-// 🔧 FONCTIONS UTILITAIRES
-// ============================================================================
+// =============================================================================
+// 🔧 VALIDATION ET LOGIQUE MÉTIER
+// =============================================================================
 
 function validateConfig(config) {
     const rules = {
@@ -130,7 +136,15 @@ function getValidationErrors(config) {
     return errors;
 }
 
-async function fetchMatchesFromOpenAI(config, progressCallback) {
+function updateProgress(percentage, message) {
+    console.log(`📊 Progression: ${percentage}% - ${message}`);
+}
+
+// =============================================================================
+// 🔍 RÉCUPÉRATION DES MATCHS VIA OPENAI
+// =============================================================================
+
+async function fetchMatchesFromOpenAI(config) {
     const periodText = {
         today: "aujourd'hui (prochaines 24h)",
         tomorrow: "demain (24h-48h)",
@@ -224,8 +238,8 @@ function parseMatchesResponse(content) {
                     const shots = line.match(/\+(\d+\.\d+) @(\d+\.\d+)/g);
                     if (shots) {
                         match.shots = shots.map(s => {
-                            const match = s.match(/\+(\d+\.\d+) @(\d+\.\d+)/);
-                            return { line: parseFloat(match[1]), odds: parseFloat(match[2]) };
+                            const m = s.match(/\+(\d+\.\d+) @(\d+\.\d+)/);
+                            return { line: parseFloat(m[1]), odds: parseFloat(m[2]) };
                         });
                     }
                 }
@@ -237,10 +251,14 @@ function parseMatchesResponse(content) {
         }
     }
     
-    return matches.slice(0, 15); // Max 15 matchs
+    return matches.slice(0, 15);
 }
 
-async function getSafeElementsForMatch(match, config, progressCallback) {
+// =============================================================================
+// 🎯 ANALYSE DES ÉLÉMENTS SÛRS PAR MATCH
+// =============================================================================
+
+async function getSafeElementsForMatch(match, config) {
     const prompt = `
 Match: ${match.teams} (${match.time} Bénin)
 
@@ -287,23 +305,27 @@ function parseSafeElements(content) {
                 type: match[1],
                 value: match[2],
                 odds: parseFloat(match[3]),
-                explanation: match[4]
+                explanation: match[4],
+                confidence: 75 // Valeur par défaut, sera ajustée
             });
         }
     }
     
-    // Vérifier la confiance
     const confidenceMatch = content.match(/Confiance: (\d+)%/);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 70;
     
     return elements.slice(0, 2).map(e => ({ ...e, confidence }));
 }
 
+// =============================================================================
+// 🧮 GÉNÉRATION DES COMBINAISONS VALIDES
+// =============================================================================
+
 function generateValidCombinations(matches, config) {
     const combinations = [];
     
     function backtrack(index, currentCombo, currentOdds, usedTypes) {
-        // Condition d'arrêt : atteint le max ou trouvé une cote valide
+        // Condition d'arrêt : cote valide trouvée
         if (currentCombo.length >= 2 && 
             currentOdds >= config.targetOdd * 0.4 && 
             currentOdds <= config.targetOdd * 2.5) {
@@ -321,22 +343,11 @@ function generateValidCombinations(matches, config) {
         
         // Essayer d'ajouter ce match avec chaque élément
         for (const element of matches[index].elements) {
-            // Vérifier contraintes (pas victoire + tirs sur même match)
-            const hasConflict = currentCombo.some(item => 
-                item.match.id === matches[index].id && 
-                ((item.element.type === 'victoire' && element.type === 'tirs_cadres') ||
-                 (item.element.type === 'tirs_cadres' && element.type === 'victoire'))
-            );
-            
-            if (hasConflict) continue;
-            
-            // Vérifier diversification
-            const futureTypes = new Set([...usedTypes, element.type]);
-            if (futureTypes.size < 2 && currentCombo.length > 0) continue;
-            
-            currentCombo.push({ match: matches[index], element });
-            backtrack(index + 1, currentCombo, currentOdds * element.odds, [...usedTypes, element.type]);
-            currentCombo.pop();
+            if (isValidCombination(currentCombo, matches[index], element, usedTypes)) {
+                currentCombo.push({ match: matches[index], element });
+                backtrack(index + 1, currentCombo, currentOdds * element.odds, [...usedTypes, element.type]);
+                currentCombo.pop();
+            }
         }
         
         // Sauter ce match
@@ -345,6 +356,27 @@ function generateValidCombinations(matches, config) {
     
     backtrack(0, [], 1.0, []);
     return combinations;
+}
+
+function isValidCombination(existingCombo, newMatch, newElement, usedTypes) {
+    // CONTRAINTE 1 : Pas de victoire + tirs_cadres sur même match
+    if (newElement.type === 'tirs_cadres' || newElement.type === 'victoire') {
+        const conflictType = newElement.type === 'tirs_cadres' ? 'victoire' : 'tirs_cadres';
+        for (const item of existingCombo) {
+            if (item.match.id === newMatch.id && item.element.type === conflictType) {
+                return false;
+            }
+        }
+    }
+    
+    // CONTRAINTE 2 : Max 8 matchs
+    if (existingCombo.length >= 7) return false;
+    
+    // CONTRAINTE 3 : Diversification (au moins 2 types différents)
+    const futureTypes = new Set([...usedTypes, newElement.type]);
+    if (futureTypes.size < 2 && existingCombo.length > 0) return false;
+    
+    return true;
 }
 
 function calculateAverageConfidence(combo) {
@@ -362,6 +394,7 @@ function findBestCombination(combinations, targetOdd) {
         const currentDiff = Math.abs(current.odds - targetOdd);
         const bestDiff = Math.abs(best.odds - targetOdd);
         
+        // Priorité : différence de cote, puis confiance
         if (currentDiff < bestDiff || 
            (currentDiff === bestDiff && current.confidence > best.confidence)) {
             return current;
@@ -370,6 +403,10 @@ function findBestCombination(combinations, targetOdd) {
     });
 }
 
+// =============================================================================
+// 📝 ENRICHISSEMENT AVEC EXPLICATIONS IA
+// =============================================================================
+
 async function enrichWithExplanations(combination) {
     if (!combination) return null;
     
@@ -377,15 +414,16 @@ async function enrichWithExplanations(combination) {
     
     const prompt = `
 Analyse ce combiné de paris et explique pourquoi il est solide :
-- Matchs: ${matchNames}
-- Cote totale: ${combination.odds.toFixed(2)}
-- Confiance: ${combination.confidence.toFixed(0)}%
+
+Matchs: ${matchNames}
+Cote totale: ${combination.odds.toFixed(2)}
+Confiance moyenne: ${combination.confidence.toFixed(0)}%
 
 Donne :
 1. Analyse du risque global (2-3 phrases)
 2. Point fort du combiné
 3. Point d'attention
-4. Recommandation de mise
+4. Recommandation de mise (ex: "Mise 2% de bankroll")
 `;
 
     try {
@@ -407,9 +445,9 @@ Donne :
     return combination;
 }
 
-// ============================================================================
+// =============================================================================
 // 📍 ROUTES SUPPLÉMENTAIRES
-// ============================================================================
+// =============================================================================
 
 app.get('/api/config', (req, res) => {
     res.json({
@@ -423,13 +461,16 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Démarrage du serveur sur le port 10000
 app.listen(PORT, () => {
     console.log(`
-╔═══════════════════════════════════════╗
-║   🚀 PRONOSAI PRO - IA ÉDITION       ║
-║   📍 http://localhost:${PORT}          ║
-║   🔑 OpenAI: ${process.env.OPENAI_API_KEY ? '✅' : '❌'} Configurée     ║
-║   ⚽ Version: 2.0 - 1xbet Ready       ║
-╚═══════════════════════════════════════╝
+╔═══════════════════════════════════════════╗
+║   🚀 PRONOSAI PRO - IA ÉDITION           ║
+║   📍 http://localhost:${PORT}              ║
+║   🔑 OpenAI: ${process.env.OPENAI_API_KEY ? '✅ Configurée' : '❌ Clé manquante'} ║
+║   ⚽ Port: ${PORT} (Render.com ready)    ║
+╚═══════════════════════════════════════════╝
     `);
 });
+
+module.exports = app;

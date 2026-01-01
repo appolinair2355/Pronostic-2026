@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const progressBar = document.getElementById('progressBar');
   const analyzeBtn = document.getElementById('analyzeBtn');
 
-  // Gestion des cases à cocher marchés
+  // Gestion des cases marchés
   const marketCheckboxes = document.querySelectorAll('.market-checkbox');
   marketCheckboxes.forEach(checkbox => {
     checkbox.addEventListener('click', (e) => {
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Soumission du formulaire
+  // Soumission formulaire
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -36,12 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedMarkets
     };
 
-    // Afficher loading
     loadingSection.classList.add('active');
     resultsSection.classList.remove('show');
     analyzeBtn.disabled = true;
     
-    // Simuler progression
     simulateProgress();
 
     try {
@@ -64,13 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
       displayError('Erreur réseau. Veuillez réessayer.');
     } finally {
       loadingSection.classList.remove('active');
-      setTimeout(() => {
-        analyzeBtn.disabled = false;
-      }, 1000);
+      setTimeout(() => { analyzeBtn.disabled = false; }, 1000);
     }
   });
 
-  // Simulation de progression
+  // Simulation progression
   function simulateProgress() {
     let progress = 0;
     const interval = setInterval(() => {
@@ -91,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 300);
   }
 
-  // Afficher les résultats
+  // Afficher résultats
   function displayResults(data) {
     const html = `
       <div class="result-card">
@@ -129,12 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     resultsSection.innerHTML = html;
     resultsSection.classList.add('show');
-    
-    // Scroll vers les résultats
     resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // Afficher une erreur
+  // Afficher erreur
   function displayError(message) {
     resultsSection.innerHTML = `
       <div class="error-message">

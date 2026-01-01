@@ -59,12 +59,31 @@
         <div class="max-w-5xl mx-auto">
             <h1 class="text-5xl font-bold text-center mb-12">
                 <span class="gradient-text">Générateur de Combinés IA</span>
-                <div class="text-sm text-gray-400 mt-2">Port: 10000 | Render.com Ready</div>
+                <div class="text-sm text-gray-400 mt-2">⚡ TEMPS RÉEL | Port 10000</div>
             </h1>
+            
+            <!-- ALERTE CLÉ API -->
+            <div id="api-alert" class="hidden mb-6 p-4 bg-yellow-500 bg-opacity-20 border border-yellow-500 rounded-lg">
+                <p class="text-yellow-400 text-center">
+                    ⚠️ <strong>Mode Simulé</strong> - Ajoutez vos clés API pour des données en temps réel
+                </p>
+            </div>
             
             <div class="glass-card rounded-2xl p-8">
                 <form id="config-form" class="space-y-8">
                     
+                    <!-- État des API -->
+                    <div class="grid md:grid-cols-2 gap-4 text-sm">
+                        <div class="flex items-center p-3 bg-gray-900 rounded-lg">
+                            <span class="w-2 h-2 rounded-full mr-3" id="openai-status"></span>
+                            <span>OpenAI: <span id="openai-status-text">Vérification...</span></span>
+                        </div>
+                        <div class="flex items-center p-3 bg-gray-900 rounded-lg">
+                            <span class="w-2 h-2 rounded-full mr-3" id="oddsapi-status"></span>
+                            <span>TheOddsAPI: <span id="oddsapi-status-text">Vérification...</span></span>
+                        </div>
+                    </div>
+
                     <!-- Période -->
                     <div>
                         <h3 class="text-xl font-semibold mb-4">📅 Période de matches</h3>
@@ -73,14 +92,14 @@
                                 <input type="radio" name="period" value="today" class="mr-3" checked>
                                 <div>
                                     <div class="font-medium">Aujourd'hui</div>
-                                    <div class="text-sm text-gray-400">Prochaines 24h</div>
+                                    <div class="text-sm text-gray-400">Matchs du jour</div>
                                 </div>
                             </label>
                             <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
                                 <input type="radio" name="period" value="tomorrow" class="mr-3">
                                 <div>
                                     <div class="font-medium">Demain</div>
-                                    <div class="text-sm text-gray-400">24h-48h</div>
+                                    <div class="text-sm text-gray-400">Matchs de demain</div>
                                 </div>
                             </label>
                             <label class="flex items-center p-4 glass-card rounded-lg cursor-pointer">
@@ -97,29 +116,32 @@
 
                     <!-- Côte cible -->
                     <div>
-                        <h3 class="text-xl font-semibold mb-4">🎯 Côte cible</h3>
+                        <h3 class="text-xl font-semibold mb-4">🎯 Côte cible (obligatoire)</h3>
                         <div class="flex items-center space-x-4">
-                            <input type="number" id="target-odd" min="2.0" max="100.0" step="0.01" value="5.0" 
+                            <input type="number" id="target-odd" min="2.0" max="1000.0" step="0.01" value="15.0" 
                                    class="w-32 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white">
-                            <span class="text-gray-400">(Ex: 2.0 à 100.0)</span>
+                            <span class="text-gray-400">(2.0 à 1000.0)</span>
                         </div>
+                        <p class="text-sm text-gray-500 mt-2">
+                            💡 Pour les gros combinés (>20), augmentez le nombre de matchs
+                        </p>
                     </div>
 
                     <!-- Nombre de matchs -->
                     <div>
-                        <h3 class="text-xl font-semibold mb-4">📊 Nombre de matchs max</h3>
+                        <h3 class="text-xl font-semibold mb-4">📊 Nombre de matchs maximum</h3>
                         <div class="grid grid-cols-4 gap-3">
                             <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
                                 <input type="radio" name="maxMatches" value="3" class="mr-2"> 3 matchs
                             </label>
                             <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
-                                <input type="radio" name="maxMatches" value="5" class="mr-2" checked> 5 matchs
+                                <input type="radio" name="maxMatches" value="5" class="mr-2"> 5 matchs
                             </label>
                             <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
                                 <input type="radio" name="maxMatches" value="7" class="mr-2"> 7 matchs
                             </label>
                             <label class="glass-card p-3 rounded-lg text-center cursor-pointer">
-                                <input type="radio" name="maxMatches" value="8" class="mr-2"> 8 matchs
+                                <input type="radio" name="maxMatches" value="8" class="mr-2" checked> 8 matchs
                             </label>
                         </div>
                     </div>
@@ -130,7 +152,7 @@
                         <div class="grid md:grid-cols-2 gap-4">
                             <label class="flex items-center glass-card p-3 rounded-lg">
                                 <input type="checkbox" name="markets" value="victoire" class="mr-3" checked>
-                                Victoire simple (1N2)
+                                Victoire (1x2)
                             </label>
                             <label class="flex items-center glass-card p-3 rounded-lg">
                                 <input type="checkbox" name="markets" value="handicap" class="mr-3" checked>
@@ -144,24 +166,13 @@
                                 <input type="checkbox" name="markets" value="btts" class="mr-3" checked>
                                 Les deux équipes marquent
                             </label>
-                            <label class="flex items-center glass-card p-3 rounded-lg">
-                                <input type="checkbox" name="markets" value="corners" class="mr-3" checked>
-                                Total corners
-                            </label>
-                            <label class="flex items-center glass-card p-3 rounded-lg">
-                                <input type="checkbox" name="markets" value="tirs_cadres" class="mr-3" checked>
-                                Tirs cadrés (par équipe)
-                            </label>
-                            <label class="flex items-center glass-card p-3 rounded-lg text-red-400">
-                                <input type="checkbox" name="markets" value="score_exact" class="mr-3">
-                                ⚠️ Score exact (réservé aux pros)
-                            </label>
                         </div>
                     </div>
 
+                    <!-- Bouton -->
                     <button type="submit" id="generate-btn" 
-                            class="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all">
-                        🚀 GÉNÉRER MON COMBINÉ
+                            class="w-full py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50">
+                        🚀 GÉNÉRER MON COMBINÉ TEMPS RÉEL
                     </button>
                 </form>
             </div>
@@ -230,4 +241,3 @@
     <script src="client.js"></script>
 </body>
 </html>
-
